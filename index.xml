@@ -1,0 +1,2614 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EtherCAT ESI PDO Parser v16</title>
+  <style>
+    :root {
+      --bg: #f6f7fb;
+      --panel: #ffffff;
+      --text: #182033;
+      --muted: #657085;
+      --line: #dfe4ef;
+      --primary: #2459d6;
+      --primary-dark: #173fa1;
+      --soft: #edf2ff;
+      --warn-bg: #fff8e6;
+      --warn-line: #f1c76d;
+      --error-bg: #fff0f0;
+      --error-line: #e78a8a;
+      --ok-bg: #eefaf1;
+      --ok-line: #9bd6aa;
+      --code: #f4f6fa;
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      height: 100%;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100%;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      font-family: "Segoe UI", "Microsoft JhengHei", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+    }
+
+    header {
+      background: linear-gradient(135deg, #193a8a, #2459d6);
+      color: white;
+      padding: 8px 14px;
+      box-shadow: 0 3px 10px rgba(20, 40, 90, 0.14);
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.25;
+    }
+
+    header p {
+      display: none;
+    }
+
+    main {
+      width: 100%;
+      max-width: none;
+      margin: 0;
+      padding: 8px 0 0;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 430px minmax(0, 1fr);
+      gap: 12px;
+      align-items: stretch;
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+    }
+
+    .grid.import-collapsed {
+      grid-template-columns: 56px minmax(0, 1fr);
+    }
+
+    .grid.import-collapsed .import-panel .card-body {
+      display: none;
+    }
+
+    .grid.import-collapsed .import-panel {
+      min-height: 0;
+      height: 100%;
+    }
+
+    .grid.import-collapsed .import-panel h2 {
+      height: 100%;
+      padding: 8px 6px;
+      border-bottom: 0;
+      flex-direction: column;
+      justify-content: flex-start;
+      gap: 12px;
+    }
+
+    .grid.import-collapsed .import-panel .title-text {
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      white-space: nowrap;
+      font-size: 14px;
+      margin-top: 4px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: 0 4px 16px rgba(20, 40, 90, 0.06);
+      overflow: hidden;
+    }
+
+    .card h2 {
+      font-size: 17px;
+      margin: 0;
+      padding: 15px 18px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfcff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .collapse-btn {
+      padding: 6px 9px;
+      border-radius: 8px;
+      font-size: 12px;
+      white-space: nowrap;
+      background: #e8edfb;
+    }
+
+    .card-body {
+      padding: 16px 18px 18px;
+    }
+
+    .import-panel {
+      height: 100%;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .import-panel .card-body {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+    }
+
+    .grid > section:nth-child(2) {
+      min-width: 0;
+      min-height: 0;
+      height: 100%;
+    }
+
+    .grid > section:nth-child(2) > .card {
+      height: 100%;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .grid > section:nth-child(2) > .card > .card-body {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      padding-bottom: 0;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      color: var(--muted);
+      margin: 12px 0 6px;
+    }
+
+
+    .label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin: 12px 0 6px;
+    }
+
+    .label-row label {
+      margin: 0;
+    }
+
+    .mini-btn {
+      padding: 4px 8px;
+      border-radius: 8px;
+      font-size: 12px;
+      line-height: 1.2;
+      background: #e8edfb;
+      color: var(--primary-dark);
+      white-space: nowrap;
+    }
+
+    input[type="file"], textarea, input[type="search"], input[type="text"], select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 14px;
+      background: white;
+      color: var(--text);
+      outline: none;
+    }
+
+    textarea {
+      height: 220px;
+      resize: vertical;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 12px;
+      white-space: pre;
+    }
+
+    input[type="search"]:focus, input[type="text"]:focus, textarea:focus, select:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(36, 89, 214, 0.12);
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 10px;
+      padding: 9px 13px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      background: var(--soft);
+      color: var(--primary-dark);
+    }
+
+    button.primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    button:hover { filter: brightness(0.97); }
+
+
+
+    .imported-list-box {
+      margin-top: 12px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fbfcff;
+    }
+
+    .imported-list-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: #33405a;
+      margin-bottom: 8px;
+    }
+
+    .imported-list-box select {
+      height: 38px;
+      padding: 8px 10px;
+      background: white;
+    }
+
+    .imported-list-meta {
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .option {
+      display: flex;
+      gap: 9px;
+      align-items: flex-start;
+      margin-top: 12px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .option input { margin-top: 3px; }
+
+    .hint {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+
+    .status {
+      margin-top: 14px;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 13px;
+      display: none;
+    }
+
+    .status.ok {
+      display: block;
+      background: var(--ok-bg);
+      border: 1px solid var(--ok-line);
+    }
+
+    .status.warn {
+      display: block;
+      background: var(--warn-bg);
+      border: 1px solid var(--warn-line);
+    }
+
+    .status.error {
+      display: block;
+      background: var(--error-bg);
+      border: 1px solid var(--error-line);
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 12px;
+      flex: 0 0 auto;
+    }
+
+    .toolbar input[type="search"] {
+      max-width: 360px;
+      height: 40px;
+    }
+
+    .table-info-widget {
+      display: inline-flex;
+      align-items: center;
+      min-height: 40px;
+      padding: 7px 11px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #f7f9fe;
+      color: #33405a;
+      font-size: 13px;
+      font-weight: 650;
+      white-space: nowrap;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .table-info-widget .muted {
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .group-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 8px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: #fbfcff;
+      margin-bottom: 6px;
+      font-size: 12px;
+      line-height: 1.15;
+      flex: 0 0 auto;
+    }
+
+    .group-controls .group-title {
+      color: #33405a;
+      font-weight: 800;
+      margin-right: 2px;
+    }
+
+    .group-controls label {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: #f1f4fb;
+      border: 1px solid transparent;
+      cursor: pointer;
+      user-select: none;
+      font-weight: 650;
+      color: #33405a;
+      min-height: 22px;
+    }
+
+    .group-controls input[type="radio"] {
+      margin: 0;
+      transform: scale(0.9);
+    }
+
+    .group-separator {
+      width: 1px;
+      height: 18px;
+      background: var(--line);
+      margin: 0 3px;
+    }
+
+    .group-controls label:has(input:checked) {
+      background: var(--soft);
+      border-color: #b9c8f5;
+      color: var(--primary-dark);
+    }
+
+    .tree-group-row td {
+      background: #edf2ff;
+      color: #173fa1;
+      font-weight: 800;
+      border-top: 1px solid #d2dcfa;
+      border-bottom: 1px solid #d2dcfa;
+      position: sticky;
+      left: 0;
+      z-index: 1;
+    }
+
+    .tree-toggle {
+      width: 24px;
+      height: 24px;
+      border: 1px solid #b9c8f5;
+      border-radius: 7px;
+      margin-right: 8px;
+      padding: 0;
+      background: #fff;
+      color: var(--primary-dark);
+      font-weight: 900;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .tree-group-meta {
+      margin-left: 8px;
+      color: var(--muted);
+      font-weight: 650;
+      font-size: 12px;
+    }
+
+    .tree-child-row td:first-child {
+      padding-left: 22px;
+    }
+
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      border-bottom: 1px solid var(--line);
+      padding: 8px 10px 0;
+      background: #fbfcff;
+      flex: 0 0 auto;
+    }
+
+    .tab {
+      padding: 9px 12px;
+      border-radius: 10px 10px 0 0;
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid transparent;
+      border-bottom: none;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .tab.active {
+      background: white;
+      border-color: var(--line);
+      color: var(--primary-dark);
+      margin-bottom: -1px;
+    }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .grid > section:nth-child(2) .tab-content.active {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      max-height: none;
+      flex: 1;
+      min-height: 0;
+      border-top: 1px solid var(--line);
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      min-width: 850px;
+      font-size: 13px;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 8px 9px;
+      text-align: left;
+      white-space: nowrap;
+      vertical-align: top;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      background: #f7f9fe;
+      z-index: 2;
+      color: #33405a;
+      font-weight: 750;
+    }
+
+    .column-filter-row th {
+      top: 54px;
+      padding: 5px 6px;
+      background: #ffffff;
+      z-index: 3;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .column-filter {
+      height: 30px;
+      min-width: 90px;
+      padding: 4px 7px;
+      border-radius: 7px;
+      font-size: 12px;
+      font-family: "Segoe UI", "Microsoft JhengHei", Arial, sans-serif;
+    }
+
+    .th-title {
+      font-weight: 800;
+      line-height: 1.25;
+    }
+
+    .th-source {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.25;
+      font-weight: 500;
+      white-space: normal;
+      min-width: 120px;
+    }
+
+    body.header-notes-collapsed .th-source {
+      display: none;
+    }
+
+    body.header-notes-collapsed .column-filter-row th {
+      top: 34px;
+    }
+
+    tbody tr:hover { background: #f8fbff; }
+
+    #fieldSourceTable {
+      min-width: 1200px;
+    }
+
+    #fieldSourceTable th,
+    #fieldSourceTable td {
+      white-space: normal;
+      min-width: 160px;
+      vertical-align: top;
+    }
+
+    #fieldSourceTable td:nth-child(1),
+    #fieldSourceTable td:nth-child(2),
+    #fieldSourceTable td:nth-child(3) {
+      min-width: 120px;
+      white-space: nowrap;
+    }
+
+
+    code {
+      background: var(--code);
+      border: 1px solid #e9edf5;
+      border-radius: 6px;
+      padding: 1px 5px;
+      font-family: Consolas, "Courier New", monospace;
+    }
+
+    .badge {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .badge.input { background: #eaf6ff; color: #11618c; }
+    .badge.output { background: #fff0e8; color: #a34816; }
+    .badge.esi { background: #eefaf1; color: #20793a; }
+    .badge.inferred { background: #fff8e6; color: #96670b; }
+    .badge.manual { background: #f1edff; color: #5334a0; }
+    .badge.object { background: #eefaf1; color: #20793a; }
+    .badge.padding { background: #fff8e6; color: #96670b; }
+    .badge.active { background: #eefaf1; color: #20793a; }
+    .badge.alternative { background: #eef2ff; color: #2459d6; }
+    .badge.defined { background: #f1edff; color: #5334a0; }
+
+    .empty {
+      padding: 28px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .warnings {
+      margin-top: 12px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .warning-item {
+      background: var(--warn-bg);
+      border: 1px solid var(--warn-line);
+      border-radius: 10px;
+      padding: 9px 11px;
+      font-size: 13px;
+    }
+
+    @media (max-width: 1050px) {
+      .grid, .grid.import-collapsed { grid-template-columns: 1fr; }
+      .grid.import-collapsed .import-panel .card-body { display: block; }
+      .grid.import-collapsed .import-panel h2 { height: auto; flex-direction: row; padding: 15px 18px; border-bottom: 1px solid var(--line); }
+      .grid.import-collapsed .import-panel .title-text { writing-mode: horizontal-tb; transform: none; margin-top: 0; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>EtherCAT ESI PDO Parser - 解析 ESI XML，輸出 Device、PDO Entry、DIO 點位映射表。支援 VendorSpecific/PdoDivisions 與 BYTE bit 推論。</h1>
+  </header>
+
+  <main>
+    <div class="grid" id="layoutGrid">
+      <section class="card import-panel" id="importPanel">
+        <h2><span class="title-text">1. 匯入 ESI XML</span><button id="collapseImportBtn" class="collapse-btn" type="button">收折</button></h2>
+        <div class="card-body">
+          <label for="fileInput">選擇 ESI XML / TXT 檔</label>
+          <input id="fileInput" type="file" accept=".xml,.txt,text/xml,application/xml,text/plain" multiple />
+
+          <div class="imported-list-box">
+            <div class="imported-list-title">已匯入的 ESI 列表</div>
+            <select id="importedEsiSelect" title="選擇已匯入的 ESI 後會自動切換並解析">
+              <option value="">尚未匯入 ESI</option>
+            </select>
+            <div id="importedEsiMeta" class="imported-list-meta">請先選擇 ESI XML / TXT 檔。</div>
+          </div>
+
+          <div class="label-row">
+            <label for="xmlText">或直接貼上 XML</label>
+            <button id="editXmlBtn" class="mini-btn" type="button" title="開啟新分頁編輯目前 ESI XML">編輯</button>
+          </div>
+          <textarea id="xmlText" placeholder="把 EtherCATInfo XML 貼在這裡..."></textarea>
+
+          <div class="option">
+            <input id="inferBits" type="checkbox" checked />
+            <div>
+              <b>沒有 PdoDivisions 時自動展開 bit</b><br />
+              對 BYTE / WORD / DWORD 或 BitLen ≤ 32 的 DIO Entry，依 LSB-first 推論 bit0、bit1、bit2...
+            </div>
+          </div>
+
+          <div class="option">
+            <input id="usePointNames" type="checkbox" checked />
+            <div>
+              <b>自動產生 DO/DI 點位名稱</b><br />
+              Output 依序產生 DO0、DO1...；Input 依序產生 DI0、DI1...
+            </div>
+          </div>
+
+          <div class="option">
+            <input id="showActiveOnly" type="checkbox" checked />
+            <div>
+              <b>只顯示 active process data</b><br />
+              勾選時，PDO Entry 與 DIO 點位只顯示 <code>Assignment Status = Active by SM</code> 的資料。
+            </div>
+          </div>
+
+          <div class="button-row">
+            <button class="primary" id="parseBtn">解析 ESI</button>
+            <button id="clearBtn">清空</button>
+            <button id="downloadJsonBtn">下載 JSON</button>
+          </div>
+
+          <div class="hint">
+            判讀原則：標準 PDO 讀 <code>RxPdo</code>/<code>TxPdo</code>；逐點 DO/DI 優先讀 <code>VendorSpecific/PdoDivisions</code>，否則以推論標記。
+          </div>
+          <div id="status" class="status"></div>
+        </div>
+      </section>
+
+      <section>
+        <div class="card">
+          <div class="tabs">
+            <div class="tab active" data-tab="deviceTab">Device</div>
+            <div class="tab" data-tab="pdoTab">PDO Entry</div>
+            <div class="tab" data-tab="pointTab">DIO 點位</div>
+            <div class="tab" data-tab="warningTab">Warnings</div>
+            <div class="tab" data-tab="fieldSourceTab">欄位來源說明</div>
+          </div>
+
+          <div class="card-body">
+            <div class="toolbar">
+              <input id="searchInput" type="search" placeholder="搜尋目前表格..." />
+              <button id="exportCsvBtn">匯出目前表格 CSV</button>
+              <button id="toggleHeaderNotesBtn" type="button" title="收折 / 展開表格欄位標題下方的來源註解">收折欄位註解</button>
+              <div id="tableInfoWidget" class="table-info-widget" title="統計目前表格實際顯示列數；會跟隨 active filter、搜尋與欄位過濾更新">目前表格：0 筆</div>
+            </div>
+
+            <div id="deviceTab" class="tab-content active">
+              <div class="table-wrap"><table id="deviceTable"></table></div>
+            </div>
+            <div id="pdoTab" class="tab-content">
+              <div class="group-controls" id="pdoGroupControls" aria-label="PDO Entry 樹狀收折欄位">
+                <span class="group-title">樹狀收折：</span>
+                <label><input type="radio" name="pdoGroupBy" value="Module" /> Module</label>
+                <label><input type="radio" name="pdoGroupBy" value="PDO Type" /> PDO Type</label>
+                <label><input type="radio" name="pdoGroupBy" value="PDO Index" checked /> PDO Index</label>
+                <span class="group-separator" aria-hidden="true"></span>
+                <label><input type="radio" name="pdoTreeMode" value="collapseAll" /> 收折全部</label>
+                <label><input type="radio" name="pdoTreeMode" value="expandAll" checked /> 展開全部</label>
+              </div>
+              <div class="table-wrap"><table id="pdoTable"></table></div>
+            </div>
+            <div id="pointTab" class="tab-content">
+              <div class="group-controls" id="pointGroupControls" aria-label="DIO 點位樹狀收折欄位">
+                <span class="group-title">樹狀收折：</span>
+                <label><input type="radio" name="pointGroupBy" value="Module" /> Module</label>
+                <label><input type="radio" name="pointGroupBy" value="PDO Type" /> PDO Type</label>
+                <label><input type="radio" name="pointGroupBy" value="PDO Index" checked /> PDO Index</label>
+                <label><input type="radio" name="pointGroupBy" value="Object Index" /> Object Index</label>
+                <span class="group-separator" aria-hidden="true"></span>
+                <label><input type="radio" name="pointTreeMode" value="collapseAll" /> 收折全部</label>
+                <label><input type="radio" name="pointTreeMode" value="expandAll" checked /> 展開全部</label>
+              </div>
+              <div class="table-wrap"><table id="pointTable"></table></div>
+            </div>
+            <div id="warningTab" class="tab-content">
+              <div id="warnings" class="warnings"></div>
+            </div>
+            <div id="fieldSourceTab" class="tab-content">
+              <div class="hint" style="margin-bottom:10px;">
+                這裡是 Data Dictionary：每個表格欄位都列出「ESI 來源 key / XML path」或「Parser 如何推論」。若不是 ESI 原始欄位，會明確標示為 Parser 衍生。
+              </div>
+              <div class="table-wrap"><table id="fieldSourceTable"></table></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const state = {
+      devices: [],
+      pdoEntries: [],
+      points: [],
+      warnings: [],
+      activeTable: 'deviceTable',
+      rawXml: '',
+      importedEsis: [],
+      activeImportId: '',
+      groupBy: {
+        pdoTable: 'PDO Index',
+        pointTable: 'PDO Index'
+      },
+      treeExpandMode: {
+        pdoTable: 'expandAll',
+        pointTable: 'expandAll'
+      },
+      treeCustomDefaultCollapsed: {
+        pdoTable: false,
+        pointTable: false
+      },
+      collapsedGroups: {},
+      headerNotesExpanded: true
+    };
+
+    const $ = (id) => document.getElementById(id);
+
+
+    const COLUMN_SOURCES = {
+      deviceTable: {
+        '#': 'Parser 衍生：依 <Device> 出現順序編號；不是 ESI 原始欄位',
+        'Vendor ID': 'ESI: /EtherCATInfo/Vendor/Id',
+        'Vendor Name': 'ESI: /EtherCATInfo/Vendor/Name',
+        'Product Code': 'ESI: /EtherCATInfo/Descriptions/Devices/Device/Type/@ProductCode',
+        'Revision No': 'ESI: /EtherCATInfo/Descriptions/Devices/Device/Type/@RevisionNo',
+        'Type': 'ESI: /EtherCATInfo/Descriptions/Devices/Device/Type/text()',
+        'Name': 'ESI: /EtherCATInfo/Descriptions/Devices/Device/Name/text()',
+        'Group Type': 'ESI: /EtherCATInfo/Descriptions/Devices/Device/GroupType/text()',
+        'FMMU': 'ESI: /EtherCATInfo/Descriptions/Devices/Device/Fmmu/text()',
+        'Sync Managers': 'ESI: /EtherCATInfo/Descriptions/Devices/Device/Sm；含 @StartAddress、@ControlByte、@Enable 與文字內容'
+      },
+      pdoTable: {
+        'Device #': 'Parser 衍生：對應第幾個 <Device>；不是 ESI 原始欄位',
+        'Module': 'ESI: Device/Type/text()，若空則取 Device/Name/text()',
+        'Direction': 'Parser 判斷：RxPdo = Output，TxPdo = Input',
+        'PDO Type': 'ESI 節點名稱：Device/RxPdo 或 Device/TxPdo',
+        'PDO Index': 'ESI: Device/RxPdo/Index 或 Device/TxPdo/Index',
+        'PDO Name': 'ESI: Device/RxPdo/Name 或 Device/TxPdo/Name',
+        'SM': 'ESI: Device/RxPdo/@Sm 或 Device/TxPdo/@Sm',
+        'Fixed': 'ESI: Device/RxPdo/@Fixed 或 Device/TxPdo/@Fixed',
+        'Entry #': 'Parser 衍生：該 PDO 內 <Entry> 出現順序；不是 ESI 原始欄位',
+        'Object Index': 'ESI: Device/RxPdo/Entry/Index 或 Device/TxPdo/Entry/Index',
+        'Object SubIndex': 'ESI: Device/RxPdo/Entry/SubIndex 或 Device/TxPdo/Entry/SubIndex',
+        'SubIndex': 'ESI: Device/RxPdo/Entry/SubIndex 或 Device/TxPdo/Entry/SubIndex',
+        'BitLen': 'ESI: Device/RxPdo/Entry/BitLen 或 Device/TxPdo/Entry/BitLen',
+        'DataType': 'ESI: Device/RxPdo/Entry/DataType 或 Device/TxPdo/Entry/DataType；若 Entry/Index=0x0000 則顯示 -',
+        'Entry Name': 'ESI: Device/RxPdo/Entry/Name 或 Device/TxPdo/Entry/Name；若 Entry/Index=0x0000 則顯示 Padding N bits',
+        'Entry Type': 'Parser 判斷：Entry/Index=0x0000 視為 Padding；Entry/Name=NULL 視為 Reserved；其他為 Object',
+        'Entry Usage': 'Parser 綜合 Entry Type 與 Assignment Status 判斷：例如 Active Object、Active Padding、Reserved / NULL、Alternative Object',
+        'Assignment Status': 'Parser 判斷 PDO 啟用狀態；優先依 Device/RxPdo 或 Device/TxPdo 的 @Sm 判斷 Active by SM，若沒有 @Sm 才 fallback 到 Object 0x1C12/0x1C13 default assignment',
+        'Local Start Bit': 'Parser 衍生：在同一個 PDO Index 內，依該 PDO 的 Entry 順序與 BitLen 從 0 開始累加；不是跨 alternative PDO 的 process image 位置'
+      },
+      pointTable: {
+        'Device #': 'Parser 衍生：對應第幾個 <Device>；不是 ESI 原始欄位',
+        'Module': 'ESI: Device/Type/text()，若空則取 Device/Name/text()',
+        'Point': '優先 ESI VendorSpecific/PdoDivisions/Division/Name 解析；若無則由 Parser 依 DO/DI 順序產生',
+        'Raw Name': '若有：ESI VendorSpecific/*/PdoDivisions/Division/Name；若無：Parser 產生 object.bitN',
+        'Direction': '優先由對應 PDO Type 判斷：RxPdo = Output，TxPdo = Input；找不到時由 Object Index 範圍推論',
+        'PDO Type': 'ESI 節點名稱：Device/RxPdo 或 Device/TxPdo；由對應 Object Index/SubIndex 回查',
+        'PDO Index': 'ESI: Device/RxPdo/Index 或 Device/TxPdo/Index；由對應 Object Index/SubIndex 回查',
+        'Object Index': 'ESI: Entry/Index；或 VendorSpecific/*/PdoDivisions/@Index',
+        'Object SubIndex': 'ESI: Entry/SubIndex；或 VendorSpecific/*/PdoDivisions/@SubIndex',
+        'SubIndex': 'ESI: Entry/SubIndex；或 VendorSpecific/*/PdoDivisions/@SubIndex',
+        'Object Bit Length': 'ESI: Entry/BitLen；若 VendorSpecific 找不到對應 Entry，則依 Division 數量估算',
+        'Assignment Status': '由對應 PDO Entry 的 Assignment Status 帶入，用來區分 Active by SM / Default Active / Alternative mapping',
+        'Entry Usage': 'Parser 判斷此 DIO 點位是否為有效 Object；NULL/Reserved entry 不會出現在 DIO 點位表',
+        'Local Start Bit': 'Parser 衍生：此 DIO 點位在所屬 PDO Index 內的起始 bit；由對應 PDO Entry Local Start Bit + Bit Offset 計算；不是跨 alternative PDO 的 process image 位置',
+        'Bit Offset': '有 PdoDivisions 時：依 Division 出現順序推得；無 PdoDivisions 時：Parser 依 LSB-first 推論；不是標準 PDO Entry 原始欄位',
+      }
+    };
+
+
+    const FIELD_DICTIONARY = [
+      // Device table
+      {
+        table: 'Device',
+        title: '#',
+        sourceType: 'Parser 衍生',
+        esiPath: '無；不是 ESI 原始欄位',
+        logic: '依 /EtherCATInfo/Descriptions/Devices/Device 出現順序，由 Parser 從 1 開始編號。',
+        doubleCheck: '在 ESI 搜尋 <Device>，第 1 個 Device 對應 #=1，第 2 個對應 #=2。'
+      },
+      {
+        table: 'Device',
+        title: 'Vendor ID',
+        sourceType: 'ESI 直接讀取',
+        esiPath: '/EtherCATInfo/Vendor/Id',
+        logic: '讀取 Vendor/Id，例如 #x000116C7，Parser 顯示成 0x000116C7。',
+        doubleCheck: '在 ESI 搜尋 <Vendor><Id>。'
+      },
+      {
+        table: 'Device',
+        title: 'Vendor Name',
+        sourceType: 'ESI 直接讀取',
+        esiPath: '/EtherCATInfo/Vendor/Name',
+        logic: '讀取 Vendor/Name 文字內容。',
+        doubleCheck: '在 ESI 搜尋 <Vendor><Name>。'
+      },
+      {
+        table: 'Device',
+        title: 'Product Code',
+        sourceType: 'ESI 直接讀取',
+        esiPath: '/EtherCATInfo/Descriptions/Devices/Device/Type/@ProductCode',
+        logic: '讀取 Device/Type 的 ProductCode attribute，例如 #x1401EB13。',
+        doubleCheck: '在 Device 底下找到 <Type ProductCode="...">。'
+      },
+      {
+        table: 'Device',
+        title: 'Revision No',
+        sourceType: 'ESI 直接讀取',
+        esiPath: '/EtherCATInfo/Descriptions/Devices/Device/Type/@RevisionNo',
+        logic: '讀取 Device/Type 的 RevisionNo attribute。',
+        doubleCheck: '在 Device 底下找到 <Type RevisionNo="...">。'
+      },
+      {
+        table: 'Device',
+        title: 'Type',
+        sourceType: 'ESI 直接讀取',
+        esiPath: '/EtherCATInfo/Descriptions/Devices/Device/Type/text()',
+        logic: '讀取 Device/Type 的文字內容，例如 HCNXE-MD1616-D。',
+        doubleCheck: '在 ESI 搜尋 <Type ...>...</Type>。'
+      },
+      {
+        table: 'Device',
+        title: 'Name',
+        sourceType: 'ESI 直接讀取',
+        esiPath: '/EtherCATInfo/Descriptions/Devices/Device/Name/text()',
+        logic: '讀取 Device/Name 的文字內容，通常是完整產品描述。',
+        doubleCheck: '在 Device 底下搜尋 <Name LcId="1033">。'
+      },
+      {
+        table: 'Device',
+        title: 'Group Type',
+        sourceType: 'ESI 直接讀取',
+        esiPath: '/EtherCATInfo/Descriptions/Devices/Device/GroupType/text()',
+        logic: '讀取 GroupType 文字內容。',
+        doubleCheck: '在 Device 底下搜尋 <GroupType>。'
+      },
+      {
+        table: 'Device',
+        title: 'FMMU',
+        sourceType: 'ESI 直接讀取',
+        esiPath: '/EtherCATInfo/Descriptions/Devices/Device/Fmmu/text()',
+        logic: '收集所有 Device/Fmmu 的文字內容，例如 Outputs、Inputs。',
+        doubleCheck: '在 Device 底下搜尋所有 <Fmmu>。'
+      },
+      {
+        table: 'Device',
+        title: 'Sync Managers',
+        sourceType: 'ESI 直接讀取 + 格式化',
+        esiPath: '/EtherCATInfo/Descriptions/Devices/Device/Sm/text() 與 @StartAddress/@ControlByte/@Enable',
+        logic: '收集所有 Sm，顯示 SM 編號、用途文字、StartAddress、ControlByte、Enable。SM 編號由出現順序推得。',
+        doubleCheck: '在 Device 底下搜尋所有 <Sm ...>Outputs</Sm> 或 <Sm ...>Inputs</Sm>。'
+      },
+
+      // PDO Entry table
+      {
+        table: 'PDO Entry',
+        title: 'Device #',
+        sourceType: 'Parser 衍生',
+        esiPath: '無；不是 ESI 原始欄位',
+        logic: '對應 Device 表的 #，用來知道此 PDO Entry 屬於第幾個 Device。',
+        doubleCheck: '看該 RxPdo/TxPdo 位於第幾個 <Device> 底下。'
+      },
+      {
+        table: 'PDO Entry',
+        title: 'Module',
+        sourceType: 'ESI 直接讀取 + fallback',
+        esiPath: '優先 Device/Type/text()；若空則 Device/Name/text()',
+        logic: 'Parser 用 Device/Type 當模組名稱；若 Type 文字為空，改用 Device/Name。',
+        doubleCheck: '在該 Device 底下檢查 <Type> 與 <Name>。'
+      },
+      {
+        table: 'PDO Entry',
+        title: 'Direction',
+        sourceType: 'Parser 判斷',
+        esiPath: 'Device/RxPdo 或 Device/TxPdo 的節點名稱',
+        logic: 'RxPdo 判斷為 Output，表示 Master → Slave；TxPdo 判斷為 Input，表示 Slave → Master。',
+        doubleCheck: '看這筆 Entry 是包在 <RxPdo> 還是 <TxPdo> 裡。'
+      },
+      {
+        table: 'PDO Entry',
+        title: 'PDO Type',
+        sourceType: 'ESI 節點名稱',
+        esiPath: 'Device/RxPdo 或 Device/TxPdo',
+        logic: '直接取外層 PDO 節點名稱。',
+        doubleCheck: '看 XML 外層是 <RxPdo> 或 <TxPdo>。'
+      },
+      {
+        table: 'PDO Entry',
+        title: 'PDO Index',
+        sourceType: 'ESI 直接讀取',
+        esiPath: 'Device/RxPdo/Index 或 Device/TxPdo/Index',
+        logic: '讀取 PDO mapping object 的 Index，例如 0x1600 或 0x1A00。注意這不是實際 DIO object index。',
+        doubleCheck: '在 RxPdo/TxPdo 直屬子節點搜尋 <Index>。'
+      },
+      {
+        table: 'PDO Entry',
+        title: 'PDO Name',
+        sourceType: 'ESI 直接讀取',
+        esiPath: 'Device/RxPdo/Name 或 Device/TxPdo/Name',
+        logic: '讀取 PDO mapping object 的名稱，例如 Output 1、Input 1。',
+        doubleCheck: '在 RxPdo/TxPdo 直屬子節點搜尋 <Name>。'
+      },
+      {
+        table: 'PDO Entry',
+        title: 'SM',
+        sourceType: 'ESI 直接讀取',
+        esiPath: 'Device/RxPdo/@Sm 或 Device/TxPdo/@Sm',
+        logic: '讀取 RxPdo/TxPdo 的 Sm attribute。',
+        doubleCheck: '看 <RxPdo Fixed="..." Sm="..."> 或 <TxPdo ... Sm="...">。'
+      },
+      {
+        table: 'PDO Entry',
+        title: 'Fixed',
+        sourceType: 'ESI 直接讀取',
+        esiPath: 'Device/RxPdo/@Fixed 或 Device/TxPdo/@Fixed',
+        logic: '讀取 RxPdo/TxPdo 的 Fixed attribute。',
+        doubleCheck: '看 <RxPdo Fixed="1"> 或 <TxPdo Fixed="1">。'
+      },
+      {
+        table: 'PDO Entry',
+        title: 'Entry #',
+        sourceType: 'Parser 衍生',
+        esiPath: '無；不是 ESI 原始欄位',
+        logic: '同一個 RxPdo/TxPdo 內，第幾個 <Entry>，由出現順序從 1 開始編號。',
+        doubleCheck: '數該 RxPdo/TxPdo 底下 Entry 的出現順序。'
+      },
+      {
+        table: 'PDO Entry',
+        title: 'Object Index',
+        sourceType: 'ESI 直接讀取',
+        esiPath: 'Device/RxPdo/Entry/Index 或 Device/TxPdo/Entry/Index',
+        logic: '讀取真正被 PDO 映射的 Object Dictionary Index，例如 0x7000、0x6000。',
+        doubleCheck: '在 <Entry> 底下搜尋 <Index>，不要跟 PDO Index 混淆。'
+      },
+      {
+        table: 'PDO Entry',
+        title: 'Object SubIndex',
+        sourceType: 'ESI 直接讀取',
+        esiPath: 'Device/RxPdo/Entry/SubIndex 或 Device/TxPdo/Entry/SubIndex',
+        logic: '讀取真正被 PDO 映射的 Object SubIndex，例如 1 或 2，Parser 顯示成 0x01、0x02。',
+        doubleCheck: '在 <Entry> 底下搜尋 <SubIndex>。'
+      },
+      {
+        table: 'PDO Entry',
+        title: 'BitLen',
+        sourceType: 'ESI 直接讀取',
+        esiPath: 'Device/RxPdo/Entry/BitLen 或 Device/TxPdo/Entry/BitLen',
+        logic: '讀取此 Entry 佔幾個 bit，例如 8。',
+        doubleCheck: '在 <Entry> 底下搜尋 <BitLen>。'
+      },
+      {
+        table: 'PDO Entry',
+        title: 'DataType',
+        sourceType: 'ESI 直接讀取',
+        esiPath: 'Device/RxPdo/Entry/DataType 或 Device/TxPdo/Entry/DataType',
+        logic: '讀取資料型態，例如 BYTE。若 Entry/Index=0x0000，Parser 會顯示 -，表示這是 padding 而不是有效 Object。',
+        doubleCheck: '在 <Entry> 底下搜尋 <DataType>；若 Index 是 #x0 且沒有 DataType，代表 padding。'
+      },
+      {
+        table: 'PDO Entry',
+        title: 'Entry Name',
+        sourceType: 'ESI 直接讀取或 Parser 標示',
+        esiPath: 'Device/RxPdo/Entry/Name 或 Device/TxPdo/Entry/Name；padding 則由 Parser 產生',
+        logic: '正常 Object 讀取 Entry/Name；若 Entry/Index=0x0000，Parser 顯示 Padding N bits，避免被誤判為漏資料。',
+        doubleCheck: '在 <Entry> 底下搜尋 <Name>；若 Index 是 #x0 且沒有 Name，代表 padding。'
+      },
+      {
+        table: 'PDO Entry',
+        title: 'Entry Type',
+        sourceType: 'Parser 判斷',
+        esiPath: 'Device/RxPdo/Entry/Index 與 Device/RxPdo/Entry/Name；或 Device/TxPdo/Entry/Index 與 Device/TxPdo/Entry/Name',
+        logic: 'Entry/Index=0x0000 時標示為 Padding；Entry/Name=NULL 時標示為 Reserved；其他有效 Object Index 標示為 Object。Padding 與 Reserved 會保留在 PDO Entry 表，但不會展開成有效 DIO 點位。',
+        doubleCheck: '檢查該 Entry 的 <Index> 是否為 #x0 / 0x0000，或 <Name> 是否為 NULL。'
+      },
+      {
+        table: 'PDO Entry',
+        title: 'Entry Usage',
+        sourceType: 'Parser 判斷',
+        esiPath: '由 Entry Type 與 Assignment Status 組合判斷',
+        logic: '正常 active object 顯示 Active Object；active PDO 內的 padding 顯示 Active Padding；Name=NULL 的 entry 顯示 Reserved / NULL。',
+        doubleCheck: '同時查看 Entry Type 與 Assignment Status。'
+      },
+      {
+        table: 'PDO Entry',
+        title: 'Assignment Status',
+        sourceType: 'Parser 判斷',
+        esiPath: '優先：Device/RxPdo/@Sm 或 Device/TxPdo/@Sm；Fallback：Dictionary/Objects/Object[Index=0x1C12 或 0x1C13]/Info/SubItem/Info/DefaultData',
+        logic: '若某個 RxPDO/TxPDO 節點直接帶 @Sm，Parser 會優先把該 PDO 視為 Active by SM，其他同方向 PDO 標示 Alternative。若同方向完全沒有 PDO 帶 @Sm，才 fallback 解析 0x1C12/0x1C13 的 DefaultData，命中的 PDO 標示 Default Active。',
+        doubleCheck: '先看 Device 底下的 <RxPdo Sm="2"> 或 <TxPdo Sm="3">；若沒有，再看 0x1C12/0x1C13 assignment。這可避免把 alternative PDO 誤判為 active。'
+      },
+      {
+        table: 'PDO Entry',
+        title: 'Local Start Bit',
+        sourceType: 'Parser 衍生',
+        esiPath: '無；不是 ESI 原始欄位',
+        logic: '在同一個 PDO Index 內，依 Entry 出現順序累加前面 Entry 的 BitLen，得到該 Entry 在該 PDO 內的起始 bit。Alternative PDO 之間不互相累加。',
+        doubleCheck: '只看同一 PDO Index 底下前面 Entry 的 BitLen 加總，不要跨到其他互斥 PDO。'
+      },
+
+      // DIO point table
+      {
+        table: 'DIO 點位',
+        title: 'Device #',
+        sourceType: 'Parser 衍生',
+        esiPath: '無；不是 ESI 原始欄位',
+        logic: '對應 Device 表的 #，用來知道此點位屬於第幾個 Device。',
+        doubleCheck: '看該點位來源的 RxPdo/TxPdo 或 PdoDivisions 位於第幾個 <Device> 底下。'
+      },
+      {
+        table: 'DIO 點位',
+        title: 'Module',
+        sourceType: 'ESI 直接讀取 + fallback',
+        esiPath: '優先 Device/Type/text()；若空則 Device/Name/text()',
+        logic: '同 PDO Entry 表的 Module。',
+        doubleCheck: '在該 Device 底下檢查 <Type> 與 <Name>。'
+      },
+      {
+        table: 'DIO 點位',
+        title: 'Point',
+        sourceType: 'ESI 額外描述或 Parser 產生',
+        esiPath: '優先 VendorSpecific/*/PdoDivisions/Division/Name；若無則 Parser 依 DO/DI 順序產生',
+        logic: '若 Raw Name 類似 Output Bit03，Parser 轉成 DO3；若 Raw Name 類似 IN 0A / OUT 0B，Parser 以十六進位點號轉成 DI10 / DO11；若 PDO Entry 本身是 BOOL+BitLen=1，直接視為一個 DIO 點位；若無 PdoDivisions，Parser 依 direction 與累計 bit 編成 DO0/DI0。',
+        doubleCheck: '先找 PdoDivisions/Division/Name；若找不到，查看 Source 是否為 INFERRED_FROM_BYTE_ORDER。'
+      },
+      {
+        table: 'DIO 點位',
+        title: 'Raw Name',
+        sourceType: 'ESI 額外描述或 Parser 產生',
+        esiPath: '若有：VendorSpecific/*/PdoDivisions/Division/Name；若無：Parser 產生 object.bitN',
+        logic: '保留 ESI 裡 Division/Name 的原始文字；若沒有 PdoDivisions，顯示 0x7000:0x01.bit0 這類 Parser 產生名稱。',
+        doubleCheck: '在 ESI 搜尋 <PdoDivisions Index="..." SubIndex="..."> 底下的 <Division><Name>。'
+      },
+      {
+        table: 'DIO 點位',
+        title: 'Direction',
+        sourceType: 'Parser 判斷',
+        esiPath: '優先由對應 Object 所在 RxPdo/TxPdo 判斷；找不到對應 PDO Entry 時由 Object Index 範圍推論',
+        logic: '對應 RxPdo 則 Output；對應 TxPdo 則 Input。若只有 PdoDivisions 找不到 PDO Entry，0x7000~0x7FFF 推論 Output，0x6000~0x6FFF 推論 Input。',
+        doubleCheck: '確認 Object Index/SubIndex 是否存在於 RxPdo/Entry 或 TxPdo/Entry；若不存在，看 Warnings。'
+      },
+      {
+        table: 'DIO 點位',
+        title: 'PDO Type',
+        sourceType: '由 PDO Entry 回查',
+        esiPath: 'Device/RxPdo 或 Device/TxPdo；以 Object Index + SubIndex 對應回查',
+        logic: 'Parser 用 Object Index/SubIndex 找到對應的 PDO Entry，再取它的 PDO Type。',
+        doubleCheck: '拿本列 Object Index/SubIndex 去 PDO Entry 表找同一筆。'
+      },
+      {
+        table: 'DIO 點位',
+        title: 'PDO Index',
+        sourceType: '由 PDO Entry 回查',
+        esiPath: 'Device/RxPdo/Index 或 Device/TxPdo/Index；以 Object Index + SubIndex 對應回查',
+        logic: 'Parser 用 Object Index/SubIndex 找到對應的 PDO Entry，再取該 PDO 的 Index。',
+        doubleCheck: '拿本列 Object Index/SubIndex 去 PDO Entry 表找對應的 PDO Index。'
+      },
+      {
+        table: 'DIO 點位',
+        title: 'Object Index',
+        sourceType: 'ESI 直接讀取',
+        esiPath: '優先 PDO Entry 的 Entry/Index；PdoDivisions 來源則讀 PdoDivisions/@Index',
+        logic: '若點位來自 PdoDivisions，讀取 PdoDivisions 的 Index attribute；若點位由 PDO Entry 推論，讀取 Entry/Index。',
+        doubleCheck: '看 Source；ESI_VENDOR_SPECIFIC 時查 PdoDivisions/@Index，INFERRED 時查 PDO Entry/Index。'
+      },
+      {
+        table: 'DIO 點位',
+        title: 'Object SubIndex',
+        sourceType: 'ESI 直接讀取',
+        esiPath: '優先 PDO Entry 的 Entry/SubIndex；PdoDivisions 來源則讀 PdoDivisions/@SubIndex',
+        logic: '若點位來自 PdoDivisions，讀取 PdoDivisions 的 SubIndex attribute；若點位由 PDO Entry 推論，讀取 Entry/SubIndex。',
+        doubleCheck: '看 Source；ESI_VENDOR_SPECIFIC 時查 PdoDivisions/@SubIndex，INFERRED 時查 PDO Entry/SubIndex。'
+      },
+      {
+        table: 'DIO 點位',
+        title: 'Object Bit Length',
+        sourceType: 'ESI 直接讀取或估算',
+        esiPath: '優先對應 PDO Entry/BitLen；若 PdoDivisions 找不到對應 Entry，則用 Division 數量估算',
+        logic: '正常情況會回查 PDO Entry 的 BitLen。若 ESI 有 PdoDivisions 但沒有對應 PDO Entry，Parser 用 Division 數量作為估算並產生 warning。',
+        doubleCheck: '拿 Object Index/SubIndex 去 PDO Entry 表找 BitLen；若找不到，看 Warnings。'
+      },
+      {
+        table: 'DIO 點位',
+        title: 'Entry Usage',
+        sourceType: 'Parser 判斷',
+        esiPath: '由對應 PDO Entry 帶入',
+        logic: 'DIO 點位表只列有效 Object 產生的點位；Name=NULL 的 reserved entry 不會產生點位。',
+        doubleCheck: '拿本列 Object Index/SubIndex 回 PDO Entry 表查看 Entry Usage。'
+      },
+      {
+        table: 'DIO 點位',
+        title: 'Local Start Bit',
+        sourceType: 'Parser 衍生',
+        esiPath: '無；不是 ESI 原始欄位',
+        logic: '此 DIO 點位的 Local Start Bit = 對應 PDO Entry 的 Local Start Bit + 此點位的 Bit Offset。代表該點位在所屬 PDO 內的 bit 位置。',
+        doubleCheck: '先在 PDO Entry 表找同一 PDO Index + Object Index/SubIndex 的 Local Start Bit，再加上本列 Bit Offset。'
+      },
+      {
+        table: 'DIO 點位',
+        title: 'Bit Offset',
+        sourceType: 'Parser 衍生',
+        esiPath: '不是標準 PDO Entry 原始欄位；若有 PdoDivisions，依 Division 出現順序；若無，依 LSB-first 推論',
+        logic: '第 1 個 Division = bit offset 0，第 2 個 = 1。沒有 PdoDivisions 時，Parser 將 BYTE/WORD/DWORD 依 bit0、bit1... 展開。',
+        doubleCheck: 'ESI_VENDOR_SPECIFIC：數 PdoDivisions 裡 Division 順序；INFERRED：檢查 Source 並依 bit0~bitN 推論。'
+      },
+      
+    ];
+
+
+
+
+    COLUMN_SOURCES.fieldSourceTable = {
+      'Table': 'Parser 內建 Data Dictionary：所屬表格名稱',
+      'Title': 'Parser 內建 Data Dictionary：欄位名稱',
+      '說明': 'Parser 內建 Data Dictionary：欄位用途說明',
+      'Source Type': 'Parser 內建 Data Dictionary：欄位來源類型',
+      'ESI XML Path / Key': 'Parser 內建 Data Dictionary：對應 ESI XML path 或 key',
+      'Logic': 'Parser 內建 Data Dictionary：解析或推論邏輯',
+      'How to Double Check': 'Parser 內建 Data Dictionary：人工核對方式'
+    };
+
+    const FIELD_DESCRIPTIONS = {
+      '#': 'Parser 給每個 Device 的順序編號，方便對應其他表格。',
+      'Vendor ID': 'EtherCAT 裝置廠商識別碼。',
+      'Vendor Name': 'EtherCAT 裝置廠商名稱。',
+      'Product Code': '裝置產品代碼，用於識別具體型號。',
+      'Revision No': '裝置修訂版本，用於區分同型號不同版本。',
+      'Type': '模組型號或裝置類型名稱。',
+      'Name': '裝置的人類可讀完整描述。',
+      'Group Type': 'ESI 中的裝置群組分類。',
+      'FMMU': '描述此裝置支援的 process data 映射方向。',
+      'Sync Managers': '描述 EtherCAT Sync Manager 的用途與位址設定。',
+      'Device #': '此資料列屬於第幾個 Device。',
+      'Module': '模組名稱，用於辨識資料列所屬裝置。',
+      'Direction': '資料方向；Output 表示 Master 寫給 Slave，Input 表示 Slave 回傳給 Master。',
+      'PDO Type': 'PDO 類型；RxPDO 通常對應 Output，TxPDO 通常對應 Input。',
+      'PDO Index': 'PDO mapping object 的編號，不是實際資料 object。',
+      'PDO Name': 'PDO mapping object 的名稱。',
+      'SM': '該 PDO 對應的 Sync Manager 編號。',
+      'Fixed': 'ESI 標示該 PDO 是否固定。',
+      'Entry #': '同一個 PDO 底下 Entry 的順序。',
+      'Object Index': '真正被 PDO 映射的 Object Dictionary Index。',
+      'Object SubIndex': '真正被 PDO 映射的 Object Dictionary SubIndex。',
+      'BitLen': '此 PDO Entry 佔用的 bit 長度。',
+      'DataType': '此 PDO Entry 的資料型態；padding entry 顯示 -。',
+      'Entry Name': '此 PDO Entry 的名稱；padding entry 顯示 Padding N bits。',
+      'Entry Type': 'Parser 判斷此 PDO Entry 是實際 Object、Padding，還是 NULL reserved。',
+      'Entry Usage': 'Parser 綜合判斷此 Entry 是 active/alternative object、padding，或 reserved NULL。',
+      'Assignment Status': 'Parser 判斷此 PDO 是目前 SM 指派啟用、dictionary default active、alternative，或單純有定義。',
+      'Local Start Bit': '在單一 PDO 內部的 bit 起點，不跨互斥 PDO 累加。',
+      'Point': 'DI/DO 實體點位名稱，用於給使用者查詢與操作。',
+      'Raw Name': 'ESI 或 Parser 取得的原始點位名稱。',
+      'Object Bit Length': '該 Object 的 bit 長度。',
+      'Start Bit': '舊欄位名稱；新版使用 Local Start Bit，代表單一 PDO 內部的 bit 起點。',
+      'Bit Offset': '此點位在 BYTE/WORD/DWORD object 內的 bit 位置。',
+      'Bit Mask': '依 Bit Offset 計算出的遮罩值，方便程式讀寫單一 bit。',
+      'Source': '此點位 mapping 是由 ESI 明確描述或由 Parser 推論。',
+      'Table': '欄位來源說明所屬表格。',
+      'Title': '被說明的表格欄位名稱。',
+      'Source Type': '該欄位來源類型，例如 ESI 直接讀取或 Parser 衍生。',
+      'ESI XML Path / Key': '可在 ESI 中 double check 的 XML path 或 key。',
+      'Logic': 'Parser 讀取、回查或推論此欄位的邏輯。',
+      'How to Double Check': '使用者可如何回到 ESI 檢查此欄位。',
+      '說明': '此欄位的用途說明。'
+    };
+
+    function fieldDescription(title) {
+      return FIELD_DESCRIPTIONS[title] || '此欄位用於輔助理解或追蹤解析結果。';
+    }
+
+    function columnSource(tableId, header) {
+      return (COLUMN_SOURCES[tableId] && COLUMN_SOURCES[tableId][header])
+        ? COLUMN_SOURCES[tableId][header]
+        : '來源未定義';
+    }
+
+    function localName(node) {
+      return node ? (node.localName || node.nodeName) : '';
+    }
+
+    function childrenByName(el, name) {
+      if (!el) return [];
+      return Array.from(el.children).filter(c => localName(c) === name);
+    }
+
+    function descendantsByName(el, name) {
+      if (!el) return [];
+      return Array.from(el.getElementsByTagName('*')).filter(c => localName(c) === name);
+    }
+
+    function childText(el, name, fallback = '') {
+      const child = childrenByName(el, name)[0];
+      return child ? child.textContent.trim() : fallback;
+    }
+
+    function attr(el, name, fallback = '') {
+      return el && el.hasAttribute(name) ? el.getAttribute(name) : fallback;
+    }
+
+    function normalizeHex(value, width = 4) {
+      if (value === undefined || value === null || value === '') return '';
+      let text = String(value).trim();
+      if (text.startsWith('#x') || text.startsWith('#X')) text = text.slice(2);
+      if (text.startsWith('0x') || text.startsWith('0X')) text = text.slice(2);
+      const n = parseInt(text, 16);
+      if (Number.isNaN(n)) return String(value).trim();
+      return '0x' + n.toString(16).toUpperCase().padStart(width, '0');
+    }
+
+    function normalizeSubIndex(value) {
+      if (value === undefined || value === null || value === '') return '';
+      let text = String(value).trim();
+      let n;
+      if (text.startsWith('#x') || text.startsWith('#X')) n = parseInt(text.slice(2), 16);
+      else if (text.startsWith('0x') || text.startsWith('0X')) n = parseInt(text.slice(2), 16);
+      else n = parseInt(text, 10);
+      if (Number.isNaN(n)) return text;
+      return '0x' + n.toString(16).toUpperCase().padStart(2, '0');
+    }
+
+    function toInt(value, base = 10, fallback = 0) {
+      if (value === undefined || value === null || value === '') return fallback;
+      const text = String(value).trim();
+      let n;
+      if (text.startsWith('#x') || text.startsWith('#X')) n = parseInt(text.slice(2), 16);
+      else if (text.startsWith('0x') || text.startsWith('0X')) n = parseInt(text.slice(2), 16);
+      else n = parseInt(text, base);
+      return Number.isNaN(n) ? fallback : n;
+    }
+
+    function objectKey(index, subIndex) {
+      return `${normalizeHex(index)}:${normalizeSubIndex(subIndex)}`;
+    }
+
+    function isPaddingObjectIndex(objectIndex) {
+      return normalizeHex(objectIndex, 4) === '0x0000';
+    }
+
+    function directionFromPdoType(pdoType) {
+      return pdoType === 'RxPDO' ? 'Output' : 'Input';
+    }
+
+    function directionBadge(value) {
+      const cls = value === 'Input' ? 'input' : 'output';
+      return `<span class="badge ${cls}">${escapeHtml(value)}</span>`;
+    }
+
+    function sourceBadge(value) {
+      let cls = 'manual';
+      if (String(value).startsWith('ESI')) cls = 'esi';
+      if (String(value).startsWith('INFERRED')) cls = 'inferred';
+      return `<span class="badge ${cls}">${escapeHtml(value)}</span>`;
+    }
+
+    function entryTypeBadge(value) {
+      const text = String(value || 'Object');
+      const cls = text === 'Padding' ? 'padding' : 'object';
+      return `<span class="badge ${cls}">${escapeHtml(text)}</span>`;
+    }
+
+    function assignmentStatusBadge(value) {
+      const text = String(value || 'Defined');
+      let cls = 'defined';
+      if (text.includes('Active')) cls = 'active';
+      else if (text === 'Alternative') cls = 'alternative';
+      return `<span class="badge ${cls}">${escapeHtml(text)}</span>`;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function formatCell(value, key) {
+      if (key === 'Direction') return directionBadge(value);
+      if (key === 'Source' || key === 'Mapping Source') return sourceBadge(value);
+      if (key === 'Entry Type') return entryTypeBadge(value);
+      if (key === 'Assignment Status') return assignmentStatusBadge(value);
+      if (/Index|SubIndex|Mask|Code|Revision|Vendor ID/i.test(key) && value && value !== '-') return `<code>${escapeHtml(value)}</code>`;
+      return escapeHtml(value);
+    }
+
+    function parseXml(xmlText) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(xmlText, 'text/xml');
+      const parseError = doc.querySelector('parsererror');
+      if (parseError) {
+        throw new Error('XML 解析失敗：請確認內容是合法 XML。');
+      }
+      return doc;
+    }
+
+    function parseEsi(xmlText) {
+      state.rawXml = xmlText;
+      state.devices = [];
+      state.pdoEntries = [];
+      state.points = [];
+      state.warnings = [];
+
+      const doc = parseXml(xmlText);
+      const vendorEl = descendantsByName(doc, 'Vendor')[0];
+      const vendorId = normalizeHex(childText(vendorEl, 'Id'), 8);
+      const vendorName = childText(vendorEl, 'Name');
+      const deviceEls = descendantsByName(doc, 'Device');
+
+      if (deviceEls.length === 0) {
+        state.warnings.push('找不到 <Device> 節點。');
+      }
+
+      deviceEls.forEach((deviceEl, deviceIndex) => {
+        const typeEl = childrenByName(deviceEl, 'Type')[0];
+        const typeName = typeEl ? typeEl.textContent.trim() : '';
+        const productCode = normalizeHex(attr(typeEl, 'ProductCode'), 8);
+        const revisionNo = normalizeHex(attr(typeEl, 'RevisionNo'), 8);
+        const name = childText(deviceEl, 'Name');
+        const groupType = childText(deviceEl, 'GroupType');
+        const fmmus = childrenByName(deviceEl, 'Fmmu').map(x => x.textContent.trim()).join(', ');
+        const sms = childrenByName(deviceEl, 'Sm').map((sm, idx) => {
+          const label = sm.textContent.trim();
+          const startAddress = normalizeHex(attr(sm, 'StartAddress'), 4);
+          const controlByte = attr(sm, 'ControlByte');
+          const enable = attr(sm, 'Enable');
+          return `SM${idx}:${label}(Start=${startAddress}, Ctrl=${controlByte}, En=${enable})`;
+        }).join(' | ');
+
+        const deviceNo = deviceIndex + 1;
+        const moduleName = typeName || name || `Device ${deviceNo}`;
+
+        state.devices.push({
+          '#': deviceNo,
+          'Vendor ID': vendorId,
+          'Vendor Name': vendorName,
+          'Product Code': productCode,
+          'Revision No': revisionNo,
+          'Type': typeName,
+          'Name': name,
+          'Group Type': groupType,
+          'FMMU': fmmus,
+          'Sync Managers': sms
+        });
+
+        parsePdos(deviceEl, deviceNo, moduleName);
+        parsePdoDivisions(deviceEl, deviceNo, moduleName);
+      });
+
+      inferMissingPoints();
+      validateResults();
+      return state;
+    }
+
+    function getDefaultAssignedPdoIndexes(deviceEl, direction) {
+      const assignmentObjectIndex = direction === 'Output' ? '0x1C12' : '0x1C13';
+      const dictObjects = descendantsByName(deviceEl, 'Object');
+      const assignmentObject = dictObjects.find(obj => normalizeHex(childText(obj, 'Index'), 4) === assignmentObjectIndex);
+      const result = new Set();
+      if (!assignmentObject) return result;
+
+      const infoEl = childrenByName(assignmentObject, 'Info')[0];
+      if (!infoEl) return result;
+
+      const subItems = childrenByName(infoEl, 'SubItem');
+      subItems.forEach((subItem) => {
+        const name = childText(subItem, 'Name');
+        if (/SubIndex\s*0*0\b/i.test(name)) return;
+        const itemInfo = childrenByName(subItem, 'Info')[0];
+        const defaultData = childText(itemInfo, 'DefaultData');
+        const pdoIndex = decodePdoAssignmentDefaultData(defaultData);
+        if (pdoIndex && pdoIndex !== '0x0000') result.add(pdoIndex);
+      });
+
+      return result;
+    }
+
+    function getSmAssignedPdoIndexes(deviceEl, direction) {
+      const pdoTagName = direction === 'Output' ? 'RxPdo' : 'TxPdo';
+      const result = new Set();
+      childrenByName(deviceEl, pdoTagName).forEach(pdoEl => {
+        const sm = attr(pdoEl, 'Sm');
+        if (sm === '') return;
+        const pdoIndex = normalizeHex(childText(pdoEl, 'Index'), 4);
+        if (pdoIndex) result.add(pdoIndex);
+      });
+      return result;
+    }
+
+    function getAssignedPdoInfo(deviceEl, direction) {
+      const smAssigned = getSmAssignedPdoIndexes(deviceEl, direction);
+      if (smAssigned.size > 0) {
+        return {
+          indexes: smAssigned,
+          source: 'SM_ATTRIBUTE',
+          activeLabel: 'Active by SM'
+        };
+      }
+
+      const dictionaryAssigned = getDefaultAssignedPdoIndexes(deviceEl, direction);
+      if (dictionaryAssigned.size > 0) {
+        return {
+          indexes: dictionaryAssigned,
+          source: 'DICTIONARY_DEFAULT',
+          activeLabel: 'Default Active'
+        };
+      }
+
+      return {
+        indexes: new Set(),
+        source: 'NONE',
+        activeLabel: 'Defined'
+      };
+    }
+
+    function decodePdoAssignmentDefaultData(defaultData) {
+      if (!defaultData) return '';
+      let text = String(defaultData).trim();
+      if (text.startsWith('#x') || text.startsWith('#X')) text = text.slice(2);
+      if (text.startsWith('0x') || text.startsWith('0X')) text = text.slice(2);
+      text = text.replace(/[^0-9a-fA-F]/g, '');
+      if (text.length < 4) return '';
+      const word = text.slice(0, 4);
+      const direct = parseInt(word, 16);
+      const littleEndian = parseInt(word.slice(2, 4) + word.slice(0, 2), 16);
+
+      const isPdoIndex = n => Number.isFinite(n) && ((n >= 0x1600 && n <= 0x17FF) || (n >= 0x1A00 && n <= 0x1BFF));
+      const selected = isPdoIndex(littleEndian) ? littleEndian : (isPdoIndex(direct) ? direct : littleEndian);
+      if (!Number.isFinite(selected)) return '';
+      return '0x' + selected.toString(16).toUpperCase().padStart(4, '0');
+    }
+
+
+    function isReservedNullEntryName(name) {
+      return String(name || '').trim().toUpperCase() === 'NULL';
+    }
+
+    function buildEntryUsage(entryType, assignmentStatus) {
+      if (entryType === 'Reserved') return 'Reserved / NULL';
+      const activePrefix = assignmentStatus === 'Active by SM'
+        ? 'Active'
+        : assignmentStatus === 'Default Active'
+          ? 'Default Active'
+          : assignmentStatus === 'Alternative'
+            ? 'Alternative'
+            : 'Defined';
+      return `${activePrefix} ${entryType}`;
+    }
+
+    function parsePointOrdinalFromName(rawName, direction) {
+      const text = String(rawName || '').trim();
+      const outMatch = text.match(/^(?:DO|OUT|OUTPUT)\s*([0-9A-F]+)$/i);
+      if (outMatch && direction === 'Output') return parseInt(outMatch[1], 16);
+      const inMatch = text.match(/^(?:DI|IN|INPUT)\s*([0-9A-F]+)$/i);
+      if (inMatch && direction === 'Input') return parseInt(inMatch[1], 16);
+      return null;
+    }
+
+    function derivePointNameFromBoolEntry(entry) {
+      const direction = entry['Direction'];
+      const rawName = entry['Entry Name'];
+      const ordinal = parsePointOrdinalFromName(rawName, direction);
+      const prefix = direction === 'Output' ? 'DO' : 'DI';
+      if ($('usePointNames').checked) {
+        if (Number.isFinite(ordinal)) return `${prefix}${ordinal}`;
+        return `${prefix}${Number(entry['Local Start Bit']) || 0}`;
+      }
+      return rawName || `${entry['Object Index']}:${entry['SubIndex']}`;
+    }
+
+    function parsePdos(deviceEl, deviceNo, moduleName) {
+      const pdoNodes = [
+        ...childrenByName(deviceEl, 'RxPdo').map(el => ({ el, type: 'RxPDO' })),
+        ...childrenByName(deviceEl, 'TxPdo').map(el => ({ el, type: 'TxPDO' }))
+      ];
+
+      const assignedInfoByDirection = {
+        Output: getAssignedPdoInfo(deviceEl, 'Output'),
+        Input: getAssignedPdoInfo(deviceEl, 'Input')
+      };
+
+      Object.entries(assignedInfoByDirection).forEach(([direction, info]) => {
+        if (info.indexes.size > 0) {
+          const pdoTypeName = direction === 'Output' ? 'RxPDO' : 'TxPDO';
+          const sourceText = info.source === 'SM_ATTRIBUTE'
+            ? 'PDO 節點 @Sm'
+            : '0x1C12/0x1C13 default assignment';
+          state.warnings.push(`${moduleName} ${direction} active ${pdoTypeName}: ${Array.from(info.indexes).join(', ')}（來源：${sourceText}）。其他同方向 PDO 會標示為 Alternative，Local Start Bit 不會跨 alternative PDO 累加。`);
+        }
+      });
+
+      pdoNodes.forEach(({ el, type }) => {
+        const pdoIndex = normalizeHex(childText(el, 'Index'), 4);
+        const pdoName = childText(el, 'Name');
+        const fixed = attr(el, 'Fixed');
+        const sm = attr(el, 'Sm');
+        const direction = directionFromPdoType(type);
+        const entries = childrenByName(el, 'Entry');
+        const assignedInfo = assignedInfoByDirection[direction] || { indexes: new Set(), activeLabel: 'Defined' };
+        const assignedSet = assignedInfo.indexes || new Set();
+        const assignmentStatus = assignedSet.size > 0
+          ? (assignedSet.has(pdoIndex) ? assignedInfo.activeLabel : 'Alternative')
+          : 'Defined';
+        let localStartBit = 0;
+
+        if (entries.length === 0) {
+          state.warnings.push(`${moduleName} ${type} ${pdoIndex} 沒有 Entry。`);
+        }
+
+        entries.forEach((entryEl, entryNo) => {
+          const objectIndex = normalizeHex(childText(entryEl, 'Index'), 4);
+          const rawSubIndex = childText(entryEl, 'SubIndex');
+          const rawDataType = childText(entryEl, 'DataType');
+          const rawEntryName = childText(entryEl, 'Name');
+          const bitLen = toInt(childText(entryEl, 'BitLen'));
+          const isPadding = isPaddingObjectIndex(objectIndex);
+          const isReserved = !isPadding && isReservedNullEntryName(rawEntryName);
+          const subIndex = isPadding ? '-' : normalizeSubIndex(rawSubIndex);
+          const dataType = isPadding ? '-' : rawDataType;
+          const entryName = isPadding ? `Padding ${bitLen} bits` : rawEntryName;
+          const entryType = isPadding ? 'Padding' : (isReserved ? 'Reserved' : 'Object');
+          const entryUsage = buildEntryUsage(entryType, assignmentStatus);
+          const startBit = localStartBit;
+
+          state.pdoEntries.push({
+            'Device #': deviceNo,
+            'Module': moduleName,
+            'Direction': direction,
+            'PDO Type': type,
+            'PDO Index': pdoIndex,
+            'PDO Name': pdoName,
+            'Assignment Status': assignmentStatus,
+            'Object Index': objectIndex,
+            'Object SubIndex': subIndex,
+            'SubIndex': subIndex,
+            'BitLen': bitLen,
+            'DataType': dataType,
+            'Entry Name': entryName,
+            'Entry Type': entryType,
+            'Entry Usage': entryUsage,
+            'Local Start Bit': startBit,
+            'SM': sm,
+            'Fixed': fixed,
+            'Entry #': entryNo + 1,
+            '_objectKey': `${objectIndex}:${subIndex}`,
+            '_hasVendorDivision': false,
+            '_isPadding': isPadding,
+            '_isReserved': isReserved,
+            '_assignmentStatus': assignmentStatus
+          });
+
+          if (isPadding) {
+            state.warnings.push(`${moduleName} ${type} ${pdoIndex} Entry #${entryNo + 1} 是 padding：Index=0x0000, BitLen=${bitLen}，已保留於 PDO Entry 表並跳過 DIO 點位展開。`);
+          }
+          if (isReserved) {
+            state.warnings.push(`${moduleName} ${type} ${pdoIndex} Entry #${entryNo + 1} 名稱為 NULL：已標示為 Reserved，保留於 PDO Entry 表，但不產生 DIO 點位。`);
+          }
+
+          if (bitLen > 0) {
+            localStartBit += bitLen;
+          }
+        });
+      });
+    }
+
+    function parsePdoDivisions(deviceEl, deviceNo, moduleName) {
+      const divisionNodes = descendantsByName(deviceEl, 'PdoDivisions');
+
+      divisionNodes.forEach(pd => {
+        const objectIndex = normalizeHex(attr(pd, 'Index'), 4);
+        const subIndex = normalizeSubIndex(attr(pd, 'SubIndex'));
+        const key = `${objectIndex}:${subIndex}`;
+        const matchedEntry = state.pdoEntries.find(e => e['Device #'] === deviceNo && e._objectKey === key);
+
+        if (matchedEntry) matchedEntry._hasVendorDivision = true;
+        else state.warnings.push(`PdoDivisions ${key} 找不到對應的 PDO Entry。`);
+
+        const divisions = childrenByName(pd, 'Division');
+        divisions.forEach((div, bitOffset) => {
+          const nameEl = childrenByName(div, 'Name')[0];
+          const rawName = nameEl ? nameEl.textContent.trim() : `${key}.bit${bitOffset}`;
+          const direction = matchedEntry ? matchedEntry['Direction'] : inferDirectionFromObjectIndex(objectIndex);
+          const point = derivePointName(rawName, direction, bitOffset, matchedEntry);
+
+          state.points.push({
+            'Device #': deviceNo,
+            'Module': moduleName,
+            'Point': point,
+            'Raw Name': rawName,
+            'Direction': direction,
+            'PDO Type': matchedEntry ? matchedEntry['PDO Type'] : '',
+            'PDO Index': matchedEntry ? matchedEntry['PDO Index'] : '',
+            'Object Index': objectIndex,
+            'Object SubIndex': subIndex,
+            'SubIndex': subIndex,
+            'Object Bit Length': matchedEntry ? matchedEntry['BitLen'] : divisions.length,
+            'Assignment Status': matchedEntry ? matchedEntry['Assignment Status'] : '',
+            'Entry Usage': matchedEntry ? matchedEntry['Entry Usage'] : '',
+            'Local Start Bit': matchedEntry ? ((Number(matchedEntry['Local Start Bit']) || 0) + bitOffset) : '',
+            'Bit Offset': bitOffset,
+            'Bit Mask': bitMask(bitOffset),
+            'Source': 'ESI_VENDOR_SPECIFIC',
+            '_entryKey': key
+          });
+        });
+      });
+    }
+
+    function inferDirectionFromObjectIndex(objectIndex) {
+      const n = toInt(objectIndex, 16, -1);
+      if (n >= 0x7000 && n <= 0x7FFF) return 'Output';
+      if (n >= 0x6000 && n <= 0x6FFF) return 'Input';
+      return '';
+    }
+
+    function derivePointName(rawName, direction, bitOffset, entry) {
+      const outputMatch = String(rawName).match(/output\s*bit\s*0*(\d+)/i);
+      if (outputMatch) return `DO${parseInt(outputMatch[1], 10)}`;
+
+      const inputMatch = String(rawName).match(/(?:input|in)\s*bit\s*0*(\d+)/i);
+      if (inputMatch) return `DI${parseInt(inputMatch[1], 10)}`;
+
+      if (!$('usePointNames').checked) return rawName || `${entry?._objectKey || ''}.bit${bitOffset}`;
+      return rawName || `${direction === 'Output' ? 'DO' : 'DI'}${bitOffset}`;
+    }
+
+    function inferMissingPoints() {
+      const allowBitInference = $('inferBits').checked;
+
+      state.pdoEntries.forEach(entry => {
+        if (entry._isPadding || entry._isReserved) return;
+        const direction = entry['Direction'];
+        const bitLen = Number(entry['BitLen']);
+        const dataType = String(entry['DataType'] || '').toUpperCase();
+        const hasExistingPoints = state.points.some(p =>
+          p['Device #'] === entry['Device #'] &&
+          p['Object Index'] === entry['Object Index'] &&
+          p['SubIndex'] === entry['SubIndex']
+        );
+        const entryLocalStartBit = Number(entry['Local Start Bit']) || 0;
+
+        if (!hasExistingPoints && dataType === 'BOOL' && bitLen === 1 && ['Input', 'Output'].includes(direction)) {
+          state.points.push({
+            'Device #': entry['Device #'],
+            'Module': entry['Module'],
+            'Point': derivePointNameFromBoolEntry(entry),
+            'Raw Name': entry['Entry Name'] || `${entry['Object Index']}:${entry['SubIndex']}`,
+            'Direction': direction,
+            'PDO Type': entry['PDO Type'],
+            'PDO Index': entry['PDO Index'],
+            'Object Index': entry['Object Index'],
+            'Object SubIndex': entry['SubIndex'],
+            'SubIndex': entry['SubIndex'],
+            'Object Bit Length': bitLen,
+            'Assignment Status': entry['Assignment Status'],
+            'Entry Usage': entry['Entry Usage'],
+            'Local Start Bit': entryLocalStartBit,
+            'Bit Offset': 0,
+            'Bit Mask': bitMask(0),
+            'Source': 'ESI_BOOL_ENTRY',
+            '_entryKey': entry._objectKey
+          });
+          return;
+        }
+
+        const canInfer = allowBitInference && !hasExistingPoints && shouldInferBits(bitLen, dataType, direction);
+
+        if (canInfer) {
+          for (let b = 0; b < bitLen; b++) {
+            const pointNo = entryLocalStartBit + b;
+            const prefix = direction === 'Output' ? 'DO' : 'DI';
+            const pointName = $('usePointNames').checked
+              ? `${prefix}${pointNo}`
+              : `${entry['Object Index']}:${entry['SubIndex']}.bit${b}`;
+
+            state.points.push({
+              'Device #': entry['Device #'],
+              'Module': entry['Module'],
+              'Point': pointName,
+              'Raw Name': `${entry['Object Index']}:${entry['SubIndex']}.bit${b}`,
+              'Direction': direction,
+              'PDO Type': entry['PDO Type'],
+              'PDO Index': entry['PDO Index'],
+              'Object Index': entry['Object Index'],
+              'Object SubIndex': entry['SubIndex'],
+              'SubIndex': entry['SubIndex'],
+              'Object Bit Length': bitLen,
+              'Assignment Status': entry['Assignment Status'],
+              'Entry Usage': entry['Entry Usage'],
+              'Local Start Bit': entryLocalStartBit + b,
+              'Bit Offset': b,
+              'Bit Mask': bitMask(b),
+              'Source': 'INFERRED_FROM_BYTE_ORDER',
+              '_entryKey': entry._objectKey
+            });
+          }
+          state.warnings.push(`${entry['Module']} ${entry['Object Index']}:${entry['SubIndex']} 沒有 PdoDivisions，已依 bit 順序推論 ${bitLen} 個點位。`);
+        }
+      });
+    }
+
+    function shouldInferBits(bitLen, dataType, direction) {
+      if (!direction || !['Input', 'Output'].includes(direction)) return false;
+      if (!Number.isFinite(bitLen) || bitLen <= 1 || bitLen > 32) return false;
+      const bitTypes = ['BYTE', 'USINT', 'WORD', 'UINT', 'DWORD', 'UDINT'];
+      return bitTypes.includes(dataType) || bitLen <= 32;
+    }
+
+    function bitMask(bitOffset) {
+      if (bitOffset < 0 || bitOffset > 31) return '';
+      const n = 1 << bitOffset;
+      const width = bitOffset < 8 ? 2 : bitOffset < 16 ? 4 : 8;
+      return '0x' + n.toString(16).toUpperCase().padStart(width, '0');
+    }
+
+    function validateResults() {
+      if (state.pdoEntries.length === 0) {
+        state.warnings.push('沒有解析到 RxPDO / TxPDO Entry。');
+      }
+
+      const keyCount = new Map();
+      state.pdoEntries.forEach(e => {
+        if (e._isPadding) return;
+        const fullKey = `${e['Device #']}|${e['Direction']}|${e._objectKey}`;
+        keyCount.set(fullKey, (keyCount.get(fullKey) || 0) + 1);
+      });
+      keyCount.forEach((count, key) => {
+        if (count > 1) state.warnings.push(`同一 Device/Direction 中 Object 重複出現：${key}，共 ${count} 次。`);
+      });
+    }
+
+    function renderAll() {
+      updateSummary();
+      const visiblePdoEntries = getVisiblePdoEntries();
+      const visiblePoints = getVisiblePoints();
+      renderTable('deviceTable', state.devices, [
+        '#', 'Vendor ID', 'Vendor Name', 'Product Code', 'Revision No', 'Type', 'Name', 'Group Type', 'FMMU', 'Sync Managers'
+      ]);
+      renderTable('pdoTable', visiblePdoEntries.map(stripInternal), [
+        'Device #', 'Module', 'Direction', 'PDO Type', 'PDO Index', 'PDO Name', 'Assignment Status', 'Object Index', 'Object SubIndex', 'BitLen', 'DataType', 'Entry Name', 'Entry Type', 'Entry Usage', 'Local Start Bit', 'SM', 'Fixed', 'Entry #'
+      ], state.groupBy.pdoTable);
+      renderTable('pointTable', visiblePoints.map(stripInternal), [
+        'Device #', 'Module', 'Point', 'Raw Name', 'Direction', 'PDO Type', 'PDO Index', 'Assignment Status', 'Entry Usage', 'Object Index', 'Object SubIndex', 'Object Bit Length', 'Local Start Bit', 'Bit Offset'
+      ], state.groupBy.pointTable);
+      renderFieldSources();
+      renderWarnings();
+      syncTreeModeControls();
+      updateHeaderNotesUi();
+      applySearch();
+    }
+
+    function isActiveOnlyEnabled() {
+      const checkbox = $('showActiveOnly');
+      return !!(checkbox && checkbox.checked);
+    }
+
+    function getVisiblePdoEntries() {
+      if (!isActiveOnlyEnabled()) return state.pdoEntries;
+      return state.pdoEntries.filter(row => row['Assignment Status'] === 'Active by SM');
+    }
+
+    function getVisiblePoints() {
+      if (!isActiveOnlyEnabled()) return state.points;
+      return state.points.filter(row => row['Assignment Status'] === 'Active by SM');
+    }
+
+    function stripInternal(row) {
+      const out = {};
+      Object.keys(row).forEach(k => { if (!k.startsWith('_')) out[k] = row[k]; });
+      return out;
+    }
+
+    function updateSummary() {
+      const summary = $('summary');
+      if (!summary) return;
+      const nums = summary.querySelectorAll('.num');
+      nums[0].textContent = state.devices.length;
+      nums[1].textContent = state.pdoEntries.length;
+      nums[2].textContent = state.points.length;
+      nums[3].textContent = state.warnings.length;
+    }
+
+    function renderTable(tableId, rows, headers, groupBy = '') {
+      const table = $(tableId);
+      if (!table) return;
+      table.classList.toggle('grouped-table', !!groupBy);
+
+      if (!rows.length) {
+        table.innerHTML = `<tbody><tr><td class="empty">目前沒有資料</td></tr></tbody>`;
+        return;
+      }
+
+      const headerRow = `<tr class="header-row">${headers.map(h => {
+        const source = columnSource(tableId, h);
+        return `<th data-label="${escapeHtml(h)}" title="${escapeHtml(source)}"><div class="th-title">${escapeHtml(h)}</div><div class="th-source">${escapeHtml(source)}</div></th>`;
+      }).join('')}</tr>`;
+      const filterRow = `<tr class="column-filter-row">${headers.map(h => `<th><input class="column-filter" type="text" data-column="${escapeHtml(h)}" placeholder="*" title="輸入文字過濾此欄；空白或 * 代表全部顯示" /></th>`).join('')}</tr>`;
+      const thead = `<thead>${headerRow}${filterRow}</thead>`;
+
+      let bodyRows = '';
+      if (groupBy && headers.includes(groupBy)) {
+        bodyRows = renderGroupedRows(tableId, rows, headers, groupBy);
+      } else {
+        bodyRows = rows.map(row => `<tr>${headers.map(h => `<td>${formatCell(row[h], h)}</td>`).join('')}</tr>`).join('');
+      }
+
+      table.innerHTML = thead + `<tbody>${bodyRows}</tbody>`;
+    }
+
+    function renderGroupedRows(tableId, rows, headers, groupBy) {
+      const groups = new Map();
+      rows.forEach(row => {
+        const rawValue = row[groupBy];
+        const groupValue = String(rawValue === undefined || rawValue === null || rawValue === '' ? '(空白)' : rawValue);
+        if (!groups.has(groupValue)) groups.set(groupValue, []);
+        groups.get(groupValue).push(row);
+      });
+
+      const out = [];
+      groups.forEach((groupRows, groupValue) => {
+        const key = groupStateKey(tableId, groupBy, groupValue);
+        const collapsed = isGroupCollapsed(tableId, groupBy, groupValue);
+        const outputCount = groupRows.filter(row => row['Direction'] === 'Output').length;
+        const inputCount = groupRows.filter(row => row['Direction'] === 'Input').length;
+        const directionText = outputCount || inputCount ? `，${outputCount} 個 output，${inputCount} 個 input` : '';
+        out.push(`<tr class="tree-group-row" data-group-key="${escapeHtml(groupValue)}" data-group-field="${escapeHtml(groupBy)}" data-group-table="${escapeHtml(tableId)}">` +
+          `<td colspan="${headers.length}"><button type="button" class="tree-toggle" data-table="${escapeHtml(tableId)}" data-field="${escapeHtml(groupBy)}" data-key="${escapeHtml(groupValue)}">${collapsed ? '▶' : '▼'}</button>` +
+          `<span>${escapeHtml(groupBy)}：${escapeHtml(groupValue)}</span><span class="tree-group-meta" data-total="${groupRows.length}">${groupRows.length} 筆${directionText}</span></td></tr>`);
+        groupRows.forEach(row => {
+          out.push(`<tr class="tree-child-row" data-group-key="${escapeHtml(groupValue)}" data-group-field="${escapeHtml(groupBy)}" data-group-table="${escapeHtml(tableId)}">${headers.map(h => `<td>${formatCell(row[h], h)}</td>`).join('')}</tr>`);
+        });
+      });
+      return out.join('');
+    }
+
+    function groupStateKey(tableId, groupBy, groupValue) {
+      return `${tableId}|${groupBy}|${groupValue}`;
+    }
+
+    function isGroupCollapsed(tableId, groupBy, groupValue) {
+      const mode = state.treeExpandMode?.[tableId] || 'expandAll';
+      if (mode === 'collapseAll') return true;
+      if (mode === 'expandAll') return false;
+      const key = groupStateKey(tableId, groupBy, groupValue);
+      if (Object.prototype.hasOwnProperty.call(state.collapsedGroups, key)) {
+        return !!state.collapsedGroups[key];
+      }
+      return !!state.treeCustomDefaultCollapsed?.[tableId];
+    }
+
+    function clearGroupOverridesForTable(tableId) {
+      Object.keys(state.collapsedGroups).forEach(key => {
+        if (key.startsWith(`${tableId}|`)) delete state.collapsedGroups[key];
+      });
+    }
+
+    function setTreeExpandMode(tableId, mode) {
+      if (!state.treeExpandMode) state.treeExpandMode = {};
+      if (!state.treeCustomDefaultCollapsed) state.treeCustomDefaultCollapsed = {};
+      state.treeExpandMode[tableId] = mode;
+      state.treeCustomDefaultCollapsed[tableId] = mode === 'collapseAll';
+      clearGroupOverridesForTable(tableId);
+      renderAll();
+    }
+
+    function syncTreeModeControls() {
+      const configs = [
+        { tableId: 'pdoTable', name: 'pdoTreeMode' },
+        { tableId: 'pointTable', name: 'pointTreeMode' }
+      ];
+      configs.forEach(({ tableId, name }) => {
+        const mode = state.treeExpandMode?.[tableId] || 'expandAll';
+        document.querySelectorAll(`input[name="${name}"]`).forEach(input => {
+          input.checked = input.value === mode;
+        });
+      });
+    }
+
+    function updateHeaderNotesUi() {
+      document.body.classList.toggle('header-notes-collapsed', !state.headerNotesExpanded);
+      const btn = $('toggleHeaderNotesBtn');
+      if (btn) {
+        btn.textContent = state.headerNotesExpanded ? '收折欄位註解' : '展開欄位註解';
+        btn.title = state.headerNotesExpanded ? '收折表格欄位標題下方的來源註解' : '展開表格欄位標題下方的來源註解';
+      }
+    }
+
+
+    function renderFieldSources() {
+      const rows = FIELD_DICTIONARY.map(item => ({
+        'Table': item.table,
+        'Title': item.title,
+        '說明': item.description || fieldDescription(item.title),
+        'Source Type': item.sourceType,
+        'ESI XML Path / Key': item.esiPath,
+        'Logic': item.logic,
+        'How to Double Check': item.doubleCheck
+      }));
+      const headers = [
+        'Table', 'Title', '說明', 'Source Type', 'ESI XML Path / Key', 'Logic', 'How to Double Check'
+      ];
+      renderTable('fieldSourceTable', rows, headers);
+      renderTable('fieldSourceTableTop', rows, headers);
+    }
+
+    function renderWarnings() {
+      const container = $('warnings');
+      if (!state.warnings.length) {
+        container.innerHTML = '<div class="empty">沒有警告</div>';
+        return;
+      }
+      container.innerHTML = state.warnings.map(w => `<div class="warning-item">${escapeHtml(w)}</div>`).join('');
+    }
+
+    function setStatus(type, text) {
+      const el = $('status');
+      el.className = `status ${type}`;
+      el.textContent = text;
+    }
+
+    function getActiveRowsAndHeaders() {
+      const activeTab = document.querySelector('.tab-content.active');
+      const table = activeTab ? activeTab.querySelector('table') : null;
+      if (!table) return { rows: [], headers: [] };
+      const headers = Array.from(table.querySelectorAll('thead tr.header-row th')).map(th => th.dataset.label || th.querySelector('.th-title')?.textContent || th.textContent);
+      const rows = getDisplayedTableRows(table)
+        .map(tr => Array.from(tr.children).map(td => td.innerText));
+      return { rows, headers };
+    }
+
+    function getDisplayedTableRows(table) {
+      if (!table) return [];
+      return Array.from(table.querySelectorAll('tbody tr')).filter(tr => {
+        if (tr.style.display === 'none') return false;
+        if (tr.classList.contains('tree-group-row')) return false;
+        if (tr.querySelector('.empty')) return false;
+        return true;
+      });
+    }
+
+    function cellTextByHeader(row, headers, headerName) {
+      const idx = headers.indexOf(headerName);
+      if (idx < 0) return '';
+      return (row.children[idx]?.innerText || '').trim();
+    }
+
+    function updateTableInfoWidget() {
+      const widget = $('tableInfoWidget');
+      if (!widget) return;
+
+      const activeTabEl = document.querySelector('.tab.active');
+      const activeTabId = activeTabEl ? activeTabEl.dataset.tab : 'deviceTab';
+      const activeContent = activeTabId ? $(activeTabId) : null;
+      const table = activeContent ? activeContent.querySelector('table') : null;
+
+      let text = '';
+
+      if (activeTabId === 'warningTab') {
+        const count = activeContent ? activeContent.querySelectorAll('.warning-item').length : state.warnings.length;
+        text = `總共 ${count} 個 warning`;
+      } else if (table) {
+        const headers = Array.from(table.querySelectorAll('thead tr.header-row th')).map(th => th.dataset.label || th.querySelector('.th-title')?.textContent || th.textContent);
+        const rows = getDisplayedTableRows(table);
+        const total = rows.length;
+
+        if (activeTabId === 'deviceTab') {
+          text = `總共 ${total} 個 device`;
+        } else if (activeTabId === 'pdoTab') {
+          const outputCount = rows.filter(row => cellTextByHeader(row, headers, 'Direction') === 'Output').length;
+          const inputCount = rows.filter(row => cellTextByHeader(row, headers, 'Direction') === 'Input').length;
+          text = `總共 ${total} 個 PDO Entry，${outputCount} 個 output，${inputCount} 個 input`;
+        } else if (activeTabId === 'pointTab') {
+          const outputCount = rows.filter(row => cellTextByHeader(row, headers, 'Direction') === 'Output').length;
+          const inputCount = rows.filter(row => cellTextByHeader(row, headers, 'Direction') === 'Input').length;
+          text = `總共 ${total} 個 DIO，${outputCount} 個 output，${inputCount} 個 input`;
+        } else if (activeTabId === 'fieldSourceTab') {
+          text = `總共 ${total} 筆欄位來源說明`;
+        } else {
+          text = `總共 ${total} 筆資料`;
+        }
+      } else {
+        text = '目前分頁沒有表格資料';
+      }
+
+      widget.textContent = text;
+      widget.title = `${text}（依目前表格實際顯示列數統計）`;
+    }
+
+    function download(filename, content, mime) {
+      const blob = new Blob([content], { type: mime });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function toCsv(rows, headers) {
+      const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+      return [headers.map(esc).join(','), ...rows.map(row => row.map(esc).join(','))].join('\n');
+    }
+
+    function applySearch() {
+      const q = $('searchInput').value.trim().toLowerCase();
+      const activeTab = document.querySelector('.tab-content.active');
+      const table = activeTab ? activeTab.querySelector('table') : null;
+      if (!table) {
+        updateTableInfoWidget();
+        return;
+      }
+
+      const columnFilters = Array.from(table.querySelectorAll('thead .column-filter')).map(input => {
+        const value = input.value.trim().toLowerCase();
+        return value === '*' ? '' : value;
+      });
+
+      if (table.classList.contains('grouped-table')) {
+        applyGroupedSearch(table, q, columnFilters);
+      } else {
+        const rows = table.querySelectorAll('tbody tr');
+        rows.forEach(tr => {
+          const cells = Array.from(tr.children);
+          const rowText = tr.innerText.toLowerCase();
+          const globalMatch = !q || rowText.includes(q);
+          const columnMatch = columnFilters.every((filter, idx) => {
+            if (!filter) return true;
+            const cellText = (cells[idx]?.innerText || '').toLowerCase();
+            return cellText.includes(filter);
+          });
+          tr.style.display = globalMatch && columnMatch ? '' : 'none';
+        });
+      }
+
+      updateTableInfoWidget();
+    }
+
+    function applyGroupedSearch(table, q, columnFilters) {
+      const groupRows = Array.from(table.querySelectorAll('tbody tr.tree-group-row'));
+      groupRows.forEach(groupRow => {
+        const tableId = groupRow.dataset.groupTable || table.id;
+        const groupBy = groupRow.dataset.groupField || '';
+        const groupValue = groupRow.dataset.groupKey || '';
+        const collapsed = isGroupCollapsed(tableId, groupBy, groupValue);
+        const groupText = groupRow.innerText.toLowerCase();
+        const children = Array.from(table.querySelectorAll(`tbody tr.tree-child-row[data-group-key="${cssEscape(groupValue)}"]`));
+        let matchedCount = 0;
+
+        children.forEach(tr => {
+          const cells = Array.from(tr.children);
+          const rowText = tr.innerText.toLowerCase();
+          const globalMatch = !q || rowText.includes(q) || groupText.includes(q);
+          const columnMatch = columnFilters.every((filter, idx) => {
+            if (!filter) return true;
+            const cellText = (cells[idx]?.innerText || '').toLowerCase();
+            return cellText.includes(filter);
+          });
+          const matched = globalMatch && columnMatch;
+          if (matched) matchedCount += 1;
+          tr.style.display = matched && !collapsed ? '' : 'none';
+        });
+
+        const toggle = groupRow.querySelector('.tree-toggle');
+        if (toggle) toggle.textContent = collapsed ? '▶' : '▼';
+        const meta = groupRow.querySelector('.tree-group-meta');
+        if (meta) {
+          const total = Number(meta.dataset.total || children.length);
+          const base = meta.textContent.replace(/^.*?筆/, `${total} 筆`);
+          meta.textContent = matchedCount === total ? base : `${matchedCount} / ${total} 筆符合篩選`;
+        }
+        groupRow.style.display = matchedCount > 0 ? '' : 'none';
+      });
+    }
+
+    function cssEscape(value) {
+      const text = String(value);
+      if (window.CSS && typeof window.CSS.escape === 'function') return window.CSS.escape(text);
+      return text.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    }
+
+
+
+    function makeImportId(fileName) {
+      const base = String(fileName || 'untitled.esi');
+      let candidate = base;
+      let seq = 2;
+      const existing = new Set(state.importedEsis.map(item => item.id));
+      while (existing.has(candidate)) {
+        candidate = `${base} (${seq})`;
+        seq += 1;
+      }
+      return candidate;
+    }
+
+    function updateImportedEsiSelect() {
+      const select = $('importedEsiSelect');
+      const meta = $('importedEsiMeta');
+      if (!select || !meta) return;
+
+      if (!state.importedEsis.length) {
+        select.innerHTML = '<option value="">尚未匯入 ESI</option>';
+        select.value = '';
+        meta.textContent = '請先選擇 ESI XML / TXT 檔。';
+        return;
+      }
+
+      select.innerHTML = state.importedEsis.map(item => {
+        const activeMark = item.id === state.activeImportId ? ' ✓' : '';
+        return `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name + activeMark)}</option>`;
+      }).join('');
+      select.value = state.activeImportId || state.importedEsis[state.importedEsis.length - 1].id;
+
+      const active = state.importedEsis.find(item => item.id === select.value);
+      if (active) {
+        meta.textContent = `目前顯示：${active.name}，大小 ${active.sizeText}，匯入時間 ${active.importedAt}`;
+      } else {
+        meta.textContent = `已匯入 ${state.importedEsis.length} 個 ESI。`;
+      }
+    }
+
+    function setActiveImportedEsi(id, autoParse = true) {
+      const item = state.importedEsis.find(x => x.id === id);
+      if (!item) return false;
+      state.activeImportId = item.id;
+      $('xmlText').value = item.text;
+      updateImportedEsiSelect();
+      setStatus('ok', `已切換到：${item.name}${autoParse ? '，正在自動解析...' : '。'}`);
+      if (autoParse) handleParse();
+      return true;
+    }
+
+    function formatBytes(bytes) {
+      if (!Number.isFinite(bytes)) return '';
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+    }
+
+    function addImportedEsi(name, text, size) {
+      const id = makeImportId(name);
+      const now = new Date();
+      state.importedEsis.push({
+        id,
+        name: name || id,
+        text,
+        size: Number.isFinite(size) ? size : text.length,
+        sizeText: formatBytes(Number.isFinite(size) ? size : text.length),
+        importedAt: now.toLocaleString('zh-TW', { hour12: false })
+      });
+      state.activeImportId = id;
+      updateImportedEsiSelect();
+      return id;
+    }
+
+
+    function getActiveImportName() {
+      const active = state.importedEsis.find(item => item.id === state.activeImportId);
+      return active ? active.name : 'edited_esi.xml';
+    }
+
+    function safeXmlFilename(name) {
+      const base = String(name || 'edited_esi.xml').replace(/[\\/:*?"<>|]+/g, '_').trim() || 'edited_esi.xml';
+      if (/\.xml$/i.test(base)) return base;
+      if (/\.txt$/i.test(base)) return base.replace(/\.txt$/i, '.xml');
+      return `${base}.xml`;
+    }
+
+    function applyEditedXmlFromEditor(text) {
+      const nextText = String(text || '');
+      $('xmlText').value = nextText;
+
+      const active = state.importedEsis.find(item => item.id === state.activeImportId);
+      if (active) {
+        active.text = nextText;
+        active.size = nextText.length;
+        active.sizeText = formatBytes(nextText.length);
+        active.importedAt = `${new Date().toLocaleString('zh-TW', { hour12: false })}（已編輯）`;
+        updateImportedEsiSelect();
+      }
+
+      setStatus('ok', '已從編輯分頁同步 XML 內容，正在重新解析...');
+      handleParse();
+    }
+
+    function openXmlEditorWindow() {
+      const currentText = $('xmlText').value || '';
+      if (!currentText.trim()) {
+        setStatus('warn', '目前沒有可編輯的 XML 內容，請先上傳或貼上 ESI。');
+        return;
+      }
+
+      const editorWindow = window.open('', '_blank');
+      if (!editorWindow) {
+        setStatus('error', '瀏覽器封鎖了新分頁，請允許此網站開啟彈出視窗。');
+        return;
+      }
+
+      const fileName = safeXmlFilename(getActiveImportName());
+      const editorHtml = `<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ESI XML 編輯器</title>
+  <style>
+    :root { --bg:#f6f7fb; --panel:#fff; --text:#182033; --muted:#657085; --line:#dfe4ef; --primary:#2459d6; --primary-dark:#173fa1; --soft:#edf2ff; --ok:#eefaf1; --warn:#fff8e6; --error:#fff0f0; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family:"Segoe UI","Microsoft JhengHei",Arial,sans-serif; background:var(--bg); color:var(--text); }
+    header { padding:8px 12px; background:linear-gradient(135deg,#193a8a,#2459d6); color:#fff; font-weight:800; font-size:15px; }
+    main { padding:10px; height:calc(100vh - 36px); display:flex; flex-direction:column; gap:10px; }
+    .toolbar, .info { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:10px; display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+    .info { color:var(--muted); font-size:12px; justify-content:space-between; }
+    input[type="search"] { width:300px; max-width:100%; border:1px solid var(--line); border-radius:9px; padding:8px 10px; font-size:13px; }
+    button { border:0; border-radius:9px; padding:8px 11px; cursor:pointer; font-size:13px; font-weight:700; background:var(--soft); color:var(--primary-dark); }
+    button.primary { background:var(--primary); color:#fff; }
+    button:hover { filter:brightness(.97); }
+    textarea { flex:1; width:100%; resize:none; border:1px solid var(--line); border-radius:12px; padding:12px; font-family:Consolas,"Courier New",monospace; font-size:12px; line-height:1.45; white-space:pre; outline:none; }
+    textarea:focus, input:focus { border-color:var(--primary); box-shadow:0 0 0 3px rgba(36,89,214,.12); }
+    .status { font-size:12px; color:var(--muted); min-width:180px; }
+    .status.ok { color:#20793a; }
+    .status.warn { color:#96670b; }
+    .status.error { color:#b42318; }
+  </style>
+</head>
+<body>
+  <header>ESI XML 編輯器 - 搜尋、修改、另存 XML，完成後同步回主 UI</header>
+  <main>
+    <div class="toolbar">
+      <input id="searchBox" type="search" placeholder="搜尋關鍵字..." />
+      <button id="prevBtn" type="button">上一個</button>
+      <button id="nextBtn" type="button">下一個</button>
+      <span id="searchStatus" class="status">尚未搜尋</span>
+      <button id="saveBtn" type="button">另存新檔 XML</button>
+      <button id="doneBtn" type="button" class="primary">完成編輯</button>
+      <button id="closeBtn" type="button">關閉</button>
+    </div>
+    <div class="info">
+      <span>檔名：<b id="fileNameLabel"></b></span>
+      <span>提示：搜尋會在文字區選取符合的片段；按「完成編輯」會同步回主 UI 並關閉此分頁。</span>
+    </div>
+    <textarea id="editor" spellcheck="false"></textarea>
+  </main>
+  <script>
+    const editor = document.getElementById('editor');
+    const searchBox = document.getElementById('searchBox');
+    const searchStatus = document.getElementById('searchStatus');
+    const fileNameLabel = document.getElementById('fileNameLabel');
+    let fileName = 'edited_esi.xml';
+    let matches = [];
+    let currentMatch = -1;
+
+    function setStatus(text, cls = '') {
+      searchStatus.className = 'status ' + cls;
+      searchStatus.textContent = text;
+    }
+
+    function escapeFilename(name) {
+      const base = String(name || 'edited_esi.xml').replace(/[\\/:*?"<>|]+/g, '_').trim() || 'edited_esi.xml';
+      return /\.xml$/i.test(base) ? base : base.replace(/\.txt$/i, '') + '.xml';
+    }
+
+    function downloadFile(name, content) {
+      const blob = new Blob([content], { type: 'application/xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = escapeFilename(name);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function rebuildMatches() {
+      const q = searchBox.value;
+      matches = [];
+      currentMatch = -1;
+      if (!q) {
+        setStatus('尚未搜尋');
+        return;
+      }
+      const text = editor.value;
+      const lowerText = text.toLowerCase();
+      const lowerQ = q.toLowerCase();
+      let pos = 0;
+      while (true) {
+        const found = lowerText.indexOf(lowerQ, pos);
+        if (found < 0) break;
+        matches.push(found);
+        pos = found + Math.max(1, lowerQ.length);
+      }
+      if (!matches.length) {
+        setStatus('找不到符合項目', 'warn');
+        return;
+      }
+      setStatus('找到 ' + matches.length + ' 筆，按下一個跳轉', 'ok');
+    }
+
+    function gotoMatch(delta) {
+      if (!matches.length) rebuildMatches();
+      if (!matches.length) return;
+      currentMatch = (currentMatch + delta + matches.length) % matches.length;
+      const start = matches[currentMatch];
+      const end = start + searchBox.value.length;
+      editor.focus();
+      editor.setSelectionRange(start, end);
+      setStatus((currentMatch + 1) + ' / ' + matches.length, 'ok');
+    }
+
+    window.addEventListener('message', (event) => {
+      const data = event.data || {};
+      if (data.type !== 'esi-editor-init') return;
+      editor.value = String(data.text || '');
+      fileName = escapeFilename(data.fileName || 'edited_esi.xml');
+      fileNameLabel.textContent = fileName;
+      setStatus('已載入 XML，可開始搜尋或編輯', 'ok');
+      editor.focus();
+    });
+
+    searchBox.addEventListener('input', rebuildMatches);
+    document.getElementById('nextBtn').addEventListener('click', () => gotoMatch(1));
+    document.getElementById('prevBtn').addEventListener('click', () => gotoMatch(-1));
+    document.getElementById('saveBtn').addEventListener('click', () => downloadFile(fileName, editor.value));
+    document.getElementById('doneBtn').addEventListener('click', () => {
+      if (window.opener && !window.opener.closed) {
+        window.opener.postMessage({ type: 'esi-editor-complete', text: editor.value, fileName }, '*');
+        window.close();
+      } else {
+        setStatus('找不到主 UI，請先另存新檔。', 'error');
+      }
+    });
+    document.getElementById('closeBtn').addEventListener('click', () => window.close());
+  <\/script>
+</body>
+</html>`;
+
+      editorWindow.document.open();
+      editorWindow.document.write(editorHtml);
+      editorWindow.document.close();
+
+      const initEditor = () => {
+        editorWindow.postMessage({
+          type: 'esi-editor-init',
+          text: currentText,
+          fileName
+        }, '*');
+      };
+
+      // Give the new tab time to attach its message listener.
+      setTimeout(initEditor, 80);
+      setTimeout(initEditor, 250);
+      setStatus('ok', '已開啟 ESI XML 編輯分頁。');
+    }
+
+    function handleParse() {
+      try {
+        const xmlText = $('xmlText').value.trim();
+        if (!xmlText) {
+          setStatus('warn', '請先上傳或貼上 ESI XML。');
+          return false;
+        }
+        parseEsi(xmlText);
+        renderAll();
+        setStatus('ok', `解析完成：${state.devices.length} 個 Device，${state.pdoEntries.length} 筆 PDO Entry，${state.points.length} 筆 DIO 點位。`);
+        return true;
+      } catch (err) {
+        console.error(err);
+        setStatus('error', err.message || String(err));
+        return false;
+      }
+    }
+
+    $('fileInput').addEventListener('change', async (event) => {
+      const files = Array.from(event.target.files || []);
+      if (!files.length) return;
+
+      let lastId = '';
+      for (const file of files) {
+        const text = await file.text();
+        lastId = addImportedEsi(file.name, text, file.size);
+      }
+
+      if (lastId) {
+        setActiveImportedEsi(lastId, true);
+      }
+
+      // Allow selecting the same file again later if needed.
+      event.target.value = '';
+    });
+
+    $('importedEsiSelect').addEventListener('change', (event) => {
+      const id = event.target.value;
+      if (!id) return;
+      setActiveImportedEsi(id, true);
+    });
+
+    $('editXmlBtn').addEventListener('click', openXmlEditorWindow);
+
+    window.addEventListener('message', (event) => {
+      const data = event.data || {};
+      if (data.type !== 'esi-editor-complete') return;
+      applyEditedXmlFromEditor(data.text || '');
+    });
+
+    document.querySelectorAll('input[name="pdoGroupBy"]').forEach(input => {
+      input.addEventListener('change', (event) => {
+        state.groupBy.pdoTable = event.target.value;
+        renderAll();
+      });
+    });
+
+    document.querySelectorAll('input[name="pointGroupBy"]').forEach(input => {
+      input.addEventListener('change', (event) => {
+        state.groupBy.pointTable = event.target.value;
+        renderAll();
+      });
+    });
+
+    document.querySelectorAll('input[name="pdoTreeMode"]').forEach(input => {
+      input.addEventListener('change', (event) => {
+        setTreeExpandMode('pdoTable', event.target.value);
+      });
+    });
+
+    document.querySelectorAll('input[name="pointTreeMode"]').forEach(input => {
+      input.addEventListener('change', (event) => {
+        setTreeExpandMode('pointTable', event.target.value);
+      });
+    });
+
+    $('toggleHeaderNotesBtn').addEventListener('click', () => {
+      state.headerNotesExpanded = !state.headerNotesExpanded;
+      updateHeaderNotesUi();
+    });
+
+    document.addEventListener('click', (event) => {
+      const button = event.target && event.target.closest ? event.target.closest('.tree-toggle') : null;
+      if (!button) return;
+      const tableId = button.dataset.table || '';
+      const groupBy = button.dataset.field || '';
+      const groupValue = button.dataset.key || '';
+      const key = groupStateKey(tableId, groupBy, groupValue);
+      const previousMode = state.treeExpandMode?.[tableId] || 'expandAll';
+      const wasCollapsed = isGroupCollapsed(tableId, groupBy, groupValue);
+      if (!state.treeExpandMode) state.treeExpandMode = {};
+      if (!state.treeCustomDefaultCollapsed) state.treeCustomDefaultCollapsed = {};
+      if (previousMode === 'collapseAll') {
+        state.treeCustomDefaultCollapsed[tableId] = true;
+        clearGroupOverridesForTable(tableId);
+      } else if (previousMode === 'expandAll') {
+        state.treeCustomDefaultCollapsed[tableId] = false;
+        clearGroupOverridesForTable(tableId);
+      }
+      state.treeExpandMode[tableId] = 'custom';
+      state.collapsedGroups[key] = !wasCollapsed;
+      syncTreeModeControls();
+      applySearch();
+    });
+
+    $('showActiveOnly').addEventListener('change', renderAll);
+
+    $('parseBtn').addEventListener('click', handleParse);
+
+    $('clearBtn').addEventListener('click', () => {
+      $('fileInput').value = '';
+      $('xmlText').value = '';
+      $('searchInput').value = '';
+      state.devices = [];
+      state.pdoEntries = [];
+      state.points = [];
+      state.warnings = [];
+      state.rawXml = '';
+      state.importedEsis = [];
+      state.activeImportId = '';
+      state.collapsedGroups = {};
+      updateImportedEsiSelect();
+      renderAll();
+      setStatus('ok', '已清空。');
+    });
+
+    $('downloadJsonBtn').addEventListener('click', () => {
+      const payload = {
+        generatedAt: new Date().toISOString(),
+        devices: state.devices,
+        pdoEntries: state.pdoEntries.map(stripInternal),
+        dioPoints: state.points.map(stripInternal),
+        warnings: state.warnings
+      };
+      download('esi_parsed_result.json', JSON.stringify(payload, null, 2), 'application/json;charset=utf-8');
+    });
+
+    $('exportCsvBtn').addEventListener('click', () => {
+      const { rows, headers } = getActiveRowsAndHeaders();
+      if (!headers.length || !rows.length) {
+        setStatus('warn', '目前表格沒有可匯出的資料。');
+        return;
+      }
+      download('esi_table_export.csv', toCsv(rows, headers), 'text/csv;charset=utf-8');
+    });
+
+    $('searchInput').addEventListener('input', applySearch);
+
+    document.addEventListener('input', (event) => {
+      if (event.target && event.target.classList.contains('column-filter')) {
+        applySearch();
+      }
+    });
+
+    $('collapseImportBtn').addEventListener('click', () => {
+      const grid = $('layoutGrid');
+      const collapsed = grid.classList.toggle('import-collapsed');
+      $('collapseImportBtn').textContent = collapsed ? '展開' : '收折';
+    });
+
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        $(tab.dataset.tab).classList.add('active');
+        $('searchInput').value = '';
+        applySearch();
+      });
+    });
+
+    updateImportedEsiSelect();
+    renderAll();
+  </script>
+</body>
+</html>
