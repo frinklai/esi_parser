@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>EtherCAT ESI PDO Parser v16</title>
+  <title>EtherCAT ESI PDO Parser v19</title>
   <style>
     :root {
       --bg: #f6f7fb;
@@ -1811,24 +1811,49 @@
       });
     }
 
+
+    const DEVICE_HEADERS = ['#', 'Vendor ID', 'Vendor Name', 'Product Code', 'Revision No', 'Type', 'Name', 'Group Type', 'FMMU', 'Sync Managers'];
+    const PDO_HEADERS = ['Device #', 'Module', 'Direction', 'PDO Type', 'PDO Index', 'PDO Name', 'Assignment Status', 'Object Index', 'Object SubIndex', 'BitLen', 'DataType', 'Entry Name', 'Entry Type', 'Entry Usage', 'Local Start Bit', 'SM', 'Fixed', 'Entry #'];
+    const POINT_HEADERS = ['Device #', 'Module', 'Point', 'Raw Name', 'Direction', 'PDO Type', 'PDO Index', 'Assignment Status', 'Entry Usage', 'Object Index', 'Object SubIndex', 'Object Bit Length', 'Local Start Bit', 'Bit Offset'];
+    const FIELD_SOURCE_HEADERS = ['Table', 'Title', '說明', 'Source Type', 'ESI XML Path / Key', 'Logic', 'How to Double Check'];
+
     function renderAll() {
       updateSummary();
-      const visiblePdoEntries = getVisiblePdoEntries();
-      const visiblePoints = getVisiblePoints();
-      renderTable('deviceTable', state.devices, [
-        '#', 'Vendor ID', 'Vendor Name', 'Product Code', 'Revision No', 'Type', 'Name', 'Group Type', 'FMMU', 'Sync Managers'
-      ]);
-      renderTable('pdoTable', visiblePdoEntries.map(stripInternal), [
-        'Device #', 'Module', 'Direction', 'PDO Type', 'PDO Index', 'PDO Name', 'Assignment Status', 'Object Index', 'Object SubIndex', 'BitLen', 'DataType', 'Entry Name', 'Entry Type', 'Entry Usage', 'Local Start Bit', 'SM', 'Fixed', 'Entry #'
-      ], state.groupBy.pdoTable);
-      renderTable('pointTable', visiblePoints.map(stripInternal), [
-        'Device #', 'Module', 'Point', 'Raw Name', 'Direction', 'PDO Type', 'PDO Index', 'Assignment Status', 'Entry Usage', 'Object Index', 'Object SubIndex', 'Object Bit Length', 'Local Start Bit', 'Bit Offset'
-      ], state.groupBy.pointTable);
+      renderDeviceTable();
+      renderPdoTable(false);
+      renderPointTable(false);
       renderFieldSources();
       renderWarnings();
       syncTreeModeControls();
       updateHeaderNotesUi();
       applySearch();
+    }
+
+    function renderDeviceTable() {
+      renderTable('deviceTable', state.devices, DEVICE_HEADERS);
+    }
+
+    function renderPdoTable(runSearch = true) {
+      const visiblePdoEntries = getVisiblePdoEntries();
+      renderTable('pdoTable', visiblePdoEntries.map(stripInternal), PDO_HEADERS, state.groupBy.pdoTable);
+      syncTreeModeControls();
+      updateHeaderNotesUi();
+      if (runSearch) applySearch();
+    }
+
+    function renderPointTable(runSearch = true) {
+      const visiblePoints = getVisiblePoints();
+      renderTable('pointTable', visiblePoints.map(stripInternal), POINT_HEADERS, state.groupBy.pointTable);
+      syncTreeModeControls();
+      updateHeaderNotesUi();
+      if (runSearch) applySearch();
+    }
+
+    function renderTableById(tableId, runSearch = true) {
+      if (tableId === 'pdoTable') return renderPdoTable(runSearch);
+      if (tableId === 'pointTable') return renderPointTable(runSearch);
+      if (tableId === 'deviceTable') renderDeviceTable();
+      if (runSearch) applySearch();
     }
 
     function isActiveOnlyEnabled() {
@@ -1862,10 +1887,12 @@
       nums[3].textContent = state.warnings.length;
     }
 
+
     function renderTable(tableId, rows, headers, groupBy = '') {
       const table = $(tableId);
       if (!table) return;
       table.classList.toggle('grouped-table', !!groupBy);
+      table.dataset.groupBy = groupBy || '';
 
       if (!rows.length) {
         table.innerHTML = `<tbody><tr><td class="empty">目前沒有資料</td></tr></tbody>`;
@@ -1883,10 +1910,22 @@
       if (groupBy && headers.includes(groupBy)) {
         bodyRows = renderGroupedRows(tableId, rows, headers, groupBy);
       } else {
-        bodyRows = rows.map(row => `<tr>${headers.map(h => `<td>${formatCell(row[h], h)}</td>`).join('')}</tr>`).join('');
+        bodyRows = rows.map(row => `<tr ${buildRowAttrs(row, headers)}>${headers.map(h => `<td>${formatCell(row[h], h)}</td>`).join('')}</tr>`).join('');
       }
 
       table.innerHTML = thead + `<tbody>${bodyRows}</tbody>`;
+    }
+
+    function buildRowAttrs(row, headers, extraAttrs = {}) {
+      const searchText = headers.map(h => String(row[h] ?? '')).join(' ').toLowerCase();
+      const attrs = {
+        'search-text': searchText,
+        'direction': row['Direction'] || '',
+        ...extraAttrs
+      };
+      return Object.entries(attrs)
+        .map(([key, value]) => `data-${key}="${escapeHtml(value)}"`)
+        .join(' ');
     }
 
     function renderGroupedRows(tableId, rows, headers, groupBy) {
@@ -1899,17 +1938,21 @@
       });
 
       const out = [];
+      let groupSeq = 0;
       groups.forEach((groupRows, groupValue) => {
-        const key = groupStateKey(tableId, groupBy, groupValue);
+        groupSeq += 1;
+        const groupId = `${tableId}-g-${groupSeq}`;
         const collapsed = isGroupCollapsed(tableId, groupBy, groupValue);
         const outputCount = groupRows.filter(row => row['Direction'] === 'Output').length;
         const inputCount = groupRows.filter(row => row['Direction'] === 'Input').length;
         const directionText = outputCount || inputCount ? `，${outputCount} 個 output，${inputCount} 個 input` : '';
-        out.push(`<tr class="tree-group-row" data-group-key="${escapeHtml(groupValue)}" data-group-field="${escapeHtml(groupBy)}" data-group-table="${escapeHtml(tableId)}">` +
-          `<td colspan="${headers.length}"><button type="button" class="tree-toggle" data-table="${escapeHtml(tableId)}" data-field="${escapeHtml(groupBy)}" data-key="${escapeHtml(groupValue)}">${collapsed ? '▶' : '▼'}</button>` +
-          `<span>${escapeHtml(groupBy)}：${escapeHtml(groupValue)}</span><span class="tree-group-meta" data-total="${groupRows.length}">${groupRows.length} 筆${directionText}</span></td></tr>`);
+        const baseMeta = `${groupRows.length} 筆${directionText}`;
+        const groupSearchText = `${groupBy} ${groupValue} ${baseMeta}`.toLowerCase();
+        out.push(`<tr class="tree-group-row" data-group-id="${escapeHtml(groupId)}" data-group-key="${escapeHtml(groupValue)}" data-group-field="${escapeHtml(groupBy)}" data-group-table="${escapeHtml(tableId)}" data-search-text="${escapeHtml(groupSearchText)}">` +
+          `<td colspan="${headers.length}"><button type="button" class="tree-toggle" data-table="${escapeHtml(tableId)}" data-field="${escapeHtml(groupBy)}" data-key="${escapeHtml(groupValue)}" data-group-id="${escapeHtml(groupId)}">${collapsed ? '▶' : '▼'}</button>` +
+          `<span>${escapeHtml(groupBy)}：${escapeHtml(groupValue)}</span><span class="tree-group-meta" data-total="${groupRows.length}" data-base="${escapeHtml(baseMeta)}">${escapeHtml(baseMeta)}</span></td></tr>`);
         groupRows.forEach(row => {
-          out.push(`<tr class="tree-child-row" data-group-key="${escapeHtml(groupValue)}" data-group-field="${escapeHtml(groupBy)}" data-group-table="${escapeHtml(tableId)}">${headers.map(h => `<td>${formatCell(row[h], h)}</td>`).join('')}</tr>`);
+          out.push(`<tr class="tree-child-row" ${buildRowAttrs(row, headers, { 'group-id': groupId, 'group-key': groupValue, 'group-field': groupBy, 'group-table': tableId, 'filter-match': '1' })}>${headers.map(h => `<td>${formatCell(row[h], h)}</td>`).join('')}</tr>`);
         });
       });
       return out.join('');
@@ -1936,13 +1979,14 @@
       });
     }
 
+
     function setTreeExpandMode(tableId, mode) {
       if (!state.treeExpandMode) state.treeExpandMode = {};
       if (!state.treeCustomDefaultCollapsed) state.treeCustomDefaultCollapsed = {};
       state.treeExpandMode[tableId] = mode;
       state.treeCustomDefaultCollapsed[tableId] = mode === 'collapseAll';
       clearGroupOverridesForTable(tableId);
-      renderAll();
+      renderTableById(tableId, true);
     }
 
     function syncTreeModeControls() {
@@ -2000,13 +2044,14 @@
       el.textContent = text;
     }
 
+
     function getActiveRowsAndHeaders() {
       const activeTab = document.querySelector('.tab-content.active');
       const table = activeTab ? activeTab.querySelector('table') : null;
       if (!table) return { rows: [], headers: [] };
       const headers = Array.from(table.querySelectorAll('thead tr.header-row th')).map(th => th.dataset.label || th.querySelector('.th-title')?.textContent || th.textContent);
       const rows = getDisplayedTableRows(table)
-        .map(tr => Array.from(tr.children).map(td => td.innerText));
+        .map(tr => Array.from(tr.children).map(td => td.textContent));
       return { rows, headers };
     }
 
@@ -2018,12 +2063,6 @@
         if (tr.querySelector('.empty')) return false;
         return true;
       });
-    }
-
-    function cellTextByHeader(row, headers, headerName) {
-      const idx = headers.indexOf(headerName);
-      if (idx < 0) return '';
-      return (row.children[idx]?.innerText || '').trim();
     }
 
     function updateTableInfoWidget() {
@@ -2041,19 +2080,18 @@
         const count = activeContent ? activeContent.querySelectorAll('.warning-item').length : state.warnings.length;
         text = `總共 ${count} 個 warning`;
       } else if (table) {
-        const headers = Array.from(table.querySelectorAll('thead tr.header-row th')).map(th => th.dataset.label || th.querySelector('.th-title')?.textContent || th.textContent);
         const rows = getDisplayedTableRows(table);
         const total = rows.length;
 
         if (activeTabId === 'deviceTab') {
           text = `總共 ${total} 個 device`;
         } else if (activeTabId === 'pdoTab') {
-          const outputCount = rows.filter(row => cellTextByHeader(row, headers, 'Direction') === 'Output').length;
-          const inputCount = rows.filter(row => cellTextByHeader(row, headers, 'Direction') === 'Input').length;
+          const outputCount = rows.filter(row => row.dataset.direction === 'Output').length;
+          const inputCount = rows.filter(row => row.dataset.direction === 'Input').length;
           text = `總共 ${total} 個 PDO Entry，${outputCount} 個 output，${inputCount} 個 input`;
         } else if (activeTabId === 'pointTab') {
-          const outputCount = rows.filter(row => cellTextByHeader(row, headers, 'Direction') === 'Output').length;
-          const inputCount = rows.filter(row => cellTextByHeader(row, headers, 'Direction') === 'Input').length;
+          const outputCount = rows.filter(row => row.dataset.direction === 'Output').length;
+          const inputCount = rows.filter(row => row.dataset.direction === 'Input').length;
           text = `總共 ${total} 個 DIO，${outputCount} 個 output，${inputCount} 個 input`;
         } else if (activeTabId === 'fieldSourceTab') {
           text = `總共 ${total} 筆欄位來源說明`;
@@ -2085,8 +2123,37 @@
       return [headers.map(esc).join(','), ...rows.map(row => row.map(esc).join(','))].join('\n');
     }
 
+
+    let applySearchTimer = 0;
+
+    function scheduleApplySearch(delay = 90) {
+      window.clearTimeout(applySearchTimer);
+      applySearchTimer = window.setTimeout(applySearch, delay);
+    }
+
+    function getColumnFilters(table) {
+      return Array.from(table.querySelectorAll('thead .column-filter')).map(input => {
+        const value = input.value.trim().toLowerCase();
+        return value === '*' ? '' : value;
+      });
+    }
+
+    function rowMatchesFilters(tr, q, columnFilters, groupText = '') {
+      const rowText = tr.dataset.searchText || tr.textContent.toLowerCase();
+      const globalMatch = !q || rowText.includes(q) || groupText.includes(q);
+      if (!globalMatch) return false;
+      if (!columnFilters.length) return true;
+      const cells = tr.children;
+      return columnFilters.every((filter, idx) => {
+        if (!filter) return true;
+        const cellText = (cells[idx]?.textContent || '').toLowerCase();
+        return cellText.includes(filter);
+      });
+    }
+
     function applySearch() {
-      const q = $('searchInput').value.trim().toLowerCase();
+      const searchEl = $('searchInput');
+      const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
       const activeTab = document.querySelector('.tab-content.active');
       const table = activeTab ? activeTab.querySelector('table') : null;
       if (!table) {
@@ -2094,25 +2161,16 @@
         return;
       }
 
-      const columnFilters = Array.from(table.querySelectorAll('thead .column-filter')).map(input => {
-        const value = input.value.trim().toLowerCase();
-        return value === '*' ? '' : value;
-      });
+      const columnFilters = getColumnFilters(table);
 
       if (table.classList.contains('grouped-table')) {
         applyGroupedSearch(table, q, columnFilters);
       } else {
         const rows = table.querySelectorAll('tbody tr');
         rows.forEach(tr => {
-          const cells = Array.from(tr.children);
-          const rowText = tr.innerText.toLowerCase();
-          const globalMatch = !q || rowText.includes(q);
-          const columnMatch = columnFilters.every((filter, idx) => {
-            if (!filter) return true;
-            const cellText = (cells[idx]?.innerText || '').toLowerCase();
-            return cellText.includes(filter);
-          });
-          tr.style.display = globalMatch && columnMatch ? '' : 'none';
+          const matched = rowMatchesFilters(tr, q, columnFilters);
+          tr.dataset.filterMatch = matched ? '1' : '0';
+          tr.style.display = matched ? '' : 'none';
         });
       }
 
@@ -2121,39 +2179,55 @@
 
     function applyGroupedSearch(table, q, columnFilters) {
       const groupRows = Array.from(table.querySelectorAll('tbody tr.tree-group-row'));
-      groupRows.forEach(groupRow => {
-        const tableId = groupRow.dataset.groupTable || table.id;
-        const groupBy = groupRow.dataset.groupField || '';
-        const groupValue = groupRow.dataset.groupKey || '';
-        const collapsed = isGroupCollapsed(tableId, groupBy, groupValue);
-        const groupText = groupRow.innerText.toLowerCase();
-        const children = Array.from(table.querySelectorAll(`tbody tr.tree-child-row[data-group-key="${cssEscape(groupValue)}"]`));
-        let matchedCount = 0;
+      groupRows.forEach(groupRow => updateGroupVisibility(table, groupRow, q, columnFilters));
+    }
 
-        children.forEach(tr => {
-          const cells = Array.from(tr.children);
-          const rowText = tr.innerText.toLowerCase();
-          const globalMatch = !q || rowText.includes(q) || groupText.includes(q);
-          const columnMatch = columnFilters.every((filter, idx) => {
-            if (!filter) return true;
-            const cellText = (cells[idx]?.innerText || '').toLowerCase();
-            return cellText.includes(filter);
-          });
-          const matched = globalMatch && columnMatch;
-          if (matched) matchedCount += 1;
-          tr.style.display = matched && !collapsed ? '' : 'none';
-        });
+    function updateGroupVisibility(table, groupRow, q, columnFilters) {
+      if (!table || !groupRow) return;
+      const tableId = groupRow.dataset.groupTable || table.id;
+      const groupBy = groupRow.dataset.groupField || '';
+      const groupValue = groupRow.dataset.groupKey || '';
+      const groupId = groupRow.dataset.groupId || '';
+      const collapsed = isGroupCollapsed(tableId, groupBy, groupValue);
+      const groupText = groupRow.dataset.searchText || groupRow.textContent.toLowerCase();
+      const childSelector = groupId
+        ? `tbody tr.tree-child-row[data-group-id="${cssEscape(groupId)}"]`
+        : `tbody tr.tree-child-row[data-group-key="${cssEscape(groupValue)}"]`;
+      const children = Array.from(table.querySelectorAll(childSelector));
+      let matchedCount = 0;
 
-        const toggle = groupRow.querySelector('.tree-toggle');
-        if (toggle) toggle.textContent = collapsed ? '▶' : '▼';
-        const meta = groupRow.querySelector('.tree-group-meta');
-        if (meta) {
-          const total = Number(meta.dataset.total || children.length);
-          const base = meta.textContent.replace(/^.*?筆/, `${total} 筆`);
-          meta.textContent = matchedCount === total ? base : `${matchedCount} / ${total} 筆符合篩選`;
-        }
-        groupRow.style.display = matchedCount > 0 ? '' : 'none';
+      children.forEach(tr => {
+        const matched = rowMatchesFilters(tr, q, columnFilters, groupText);
+        tr.dataset.filterMatch = matched ? '1' : '0';
+        if (matched) matchedCount += 1;
+        tr.style.display = matched && !collapsed ? '' : 'none';
       });
+
+      const toggle = groupRow.querySelector('.tree-toggle');
+      if (toggle) toggle.textContent = collapsed ? '▶' : '▼';
+      const meta = groupRow.querySelector('.tree-group-meta');
+      if (meta) {
+        const total = Number(meta.dataset.total || children.length);
+        const base = meta.dataset.base || `${total} 筆`;
+        meta.textContent = matchedCount === total ? base : `${matchedCount} / ${total} 筆符合篩選`;
+      }
+      groupRow.style.display = matchedCount > 0 ? '' : 'none';
+    }
+
+    function updateSingleGroupAfterToggle(button) {
+      const tableId = button.dataset.table || '';
+      const table = tableId ? $(tableId) : null;
+      if (!table) return;
+      const groupId = button.dataset.groupId || '';
+      const groupValue = button.dataset.key || '';
+      const groupSelector = groupId
+        ? `tbody tr.tree-group-row[data-group-id="${cssEscape(groupId)}"]`
+        : `tbody tr.tree-group-row[data-group-key="${cssEscape(groupValue)}"]`;
+      const groupRow = table.querySelector(groupSelector);
+      const q = $('searchInput') ? $('searchInput').value.trim().toLowerCase() : '';
+      const columnFilters = getColumnFilters(table);
+      updateGroupVisibility(table, groupRow, q, columnFilters);
+      updateTableInfoWidget();
     }
 
     function cssEscape(value) {
@@ -2161,7 +2235,6 @@
       if (window.CSS && typeof window.CSS.escape === 'function') return window.CSS.escape(text);
       return text.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
     }
-
 
 
     function makeImportId(fileName) {
@@ -2489,14 +2562,16 @@
     document.querySelectorAll('input[name="pdoGroupBy"]').forEach(input => {
       input.addEventListener('change', (event) => {
         state.groupBy.pdoTable = event.target.value;
-        renderAll();
+        clearGroupOverridesForTable('pdoTable');
+        renderPdoTable(true);
       });
     });
 
     document.querySelectorAll('input[name="pointGroupBy"]').forEach(input => {
       input.addEventListener('change', (event) => {
         state.groupBy.pointTable = event.target.value;
-        renderAll();
+        clearGroupOverridesForTable('pointTable');
+        renderPointTable(true);
       });
     });
 
@@ -2538,7 +2613,7 @@
       state.treeExpandMode[tableId] = 'custom';
       state.collapsedGroups[key] = !wasCollapsed;
       syncTreeModeControls();
-      applySearch();
+      updateSingleGroupAfterToggle(button);
     });
 
     $('showActiveOnly').addEventListener('change', renderAll);
@@ -2582,11 +2657,11 @@
       download('esi_table_export.csv', toCsv(rows, headers), 'text/csv;charset=utf-8');
     });
 
-    $('searchInput').addEventListener('input', applySearch);
+    $('searchInput').addEventListener('input', () => scheduleApplySearch());
 
     document.addEventListener('input', (event) => {
       if (event.target && event.target.classList.contains('column-filter')) {
-        applySearch();
+        scheduleApplySearch();
       }
     });
 
