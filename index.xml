@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>EtherCAT ESI PDO Parser v20</title>
+  <title>EtherCAT ESI PDO Parser v21</title>
   <style>
     :root {
       --bg: #f6f7fb;
@@ -769,6 +769,7 @@
   </main>
 
   <script>
+//<![CDATA[
     const state = {
       devices: [],
       pdoEntries: [],
@@ -2609,6 +2610,8 @@
 
     updateImportedEsiSelect();
     renderAll();
-  </script>
+  
+//]]>
+</script>
 </body>
 </html>
