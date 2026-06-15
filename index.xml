@@ -1,9 +1,10 @@
 <!DOCTYPE html>
+<!-- Deploy this file as index.html or .html on GitHub Pages. Do not rename it to .xml/.xhtml. -->
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>EtherCAT ESI PDO Parser v21</title>
+  <title>EtherCAT ESI PDO Parser v22</title>
   <style>
     :root {
       --bg: #f6f7fb;
@@ -2160,7 +2161,7 @@
     function cssEscape(value) {
       const text = String(value);
       if (window.CSS && typeof window.CSS.escape === 'function') return window.CSS.escape(text);
-      return text.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+      return text.replace(/[^a-zA-Z0-9_-]/g, ch => '\\' + ch.charCodeAt(0).toString(16) + ' ');
     }
 
 
